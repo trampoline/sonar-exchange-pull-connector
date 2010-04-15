@@ -4,50 +4,37 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "sonar-exchange-pull-connector"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
-    gem.email = "originalpete@gmail.com"
-    gem.homepage = "http://github.com/originalpete/sonar-exchange-pull-connector"
-    gem.authors = ["Peter MacRobert"]
-    gem.add_development_dependency "thoughtbot-shoulda", ">= 0"
-    # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
+    gem.name = "sonar_exchange_pull_connector"
+    gem.summary = %Q{An Microsoft Exchange plugin for the Trampoline SONAR connector}
+    gem.description = %Q{Plugin to pull email from an MS Exchange server and convert to JSON.}
+    gem.email = "hello@empire42.com"
+    gem.homepage = "http://github.com/trampoline/sonar-exchange-pull-connector"
+    gem.authors = ["Peter MacRobert", "Mark Meyer"]
+    
+    gem.add_dependency "sonar_connector", ">= 0.4.2"
+    gem.add_dependency "activesupport", ">= 2.3.5"
+    gem.add_dependency "json_pure", ">= 1.2.2"
+    gem.add_dependency "sonar_rexchange", ">= 0.3.5"
+    
+    gem.add_development_dependency "rspec", ">= 1.2.9"
+    gem.add_development_dependency "rr", ">= 0.10.5"
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
   puts "Jeweler (or a dependency) not available. Install it with: gem install jeweler"
 end
 
-require 'rake/testtask'
-Rake::TestTask.new(:test) do |test|
-  test.libs << 'lib' << 'test'
-  test.pattern = 'test/**/test_*.rb'
-  test.verbose = true
+require 'spec/rake/spectask'
+Spec::Rake::SpecTask.new(:spec) do |spec|
+  spec.libs << 'lib' << 'spec'
+  spec.spec_files = FileList['spec/**/*_spec.rb']
 end
 
-begin
-  require 'rcov/rcovtask'
-  Rcov::RcovTask.new do |test|
-    test.libs << 'test'
-    test.pattern = 'test/**/test_*.rb'
-    test.verbose = true
-  end
-rescue LoadError
-  task :rcov do
-    abort "RCov is not available. In order to run rcov, you must: sudo gem install spicycode-rcov"
-  end
+Spec::Rake::SpecTask.new(:rcov) do |spec|
+  spec.libs << 'lib' << 'spec'
+  spec.pattern = 'spec/**/*_spec.rb'
+  spec.rcov = true
 end
 
-task :test => :check_dependencies
-
-task :default => :test
-
-require 'rake/rdoctask'
-Rake::RDocTask.new do |rdoc|
-  version = File.exist?('VERSION') ? File.read('VERSION') : ""
-
-  rdoc.rdoc_dir = 'rdoc'
-  rdoc.title = "sonar-exchange-pull-connector #{version}"
-  rdoc.rdoc_files.include('README*')
-  rdoc.rdoc_files.include('lib/**/*.rb')
-end
+task :default => :spec
+task :spec => :check_dependencies

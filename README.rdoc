@@ -1,4 +1,4 @@
-= sonar-exchange-pull-connector
+= sonar-push-connector
 
 Description goes here.
 
