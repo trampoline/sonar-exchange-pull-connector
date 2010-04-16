@@ -2,6 +2,14 @@ module Sonar
   module Connector
     class ExchangePullConnector < Sonar::Connector::Base
       
+      attr_reader :dav_uri
+      attr_reader :owa_uri
+      attr_reader :username
+      attr_reader :password
+      attr_reader :mailbox
+      attr_reader :delete_processed_messages
+      attr_reader :is_journal_account
+      
       class << self
         def test_connection( args = {} )
           # this is actually an RExchange::Session object, that doesn't actually connect
@@ -21,7 +29,18 @@ module Sonar
       
       
       def parse(settings)
+        @dav_uri = settings["dav_uri"]
+        @owa_uri = settings["owa_uri"]
+        @username = settings["username"]
+        @password = settings["password"]
+        @mailbox = settings["mailbox"]
+        @delete_processed_messages = settings["delete_processed_messages"] == true
+        @is_journal_account = settings["is_journal_account"] == true
         
+        # validate that the key params are present
+        [:dav_uri, :owa_uri, :username, :mailbox].each {|param|
+          raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter '#{param.to_s}' cannot be blank.") if self.send(param).blank?
+        }
       end
       
       def action
