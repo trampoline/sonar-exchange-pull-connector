@@ -5,7 +5,7 @@ describe Sonar::Connector::ExchangePullConnector do
     setup_valid_config_file
     @base_config = Sonar::Connector::Config.load(valid_config_filename)
     @config = {
-      'type'=>Sonar::Connector::ExchangePullConnector, 
+      'type'=>'Sonar::Connector::ExchangePullConnector', 
       'name'=>'exchange', 
       'repeat_delay'=> 1,
       'dav_uri'  => 'https://exchangevm/Exchange/',
@@ -34,6 +34,19 @@ describe Sonar::Connector::ExchangePullConnector do
         }.should raise_error(Sonar::Connector::InvalidConfig, /#{p}.*cannot be blank/)
       }
     end
+    
+    it "should set default retrieve_batch_size" do
+      @config['retrieve_batch_size'].should be_nil
+      @connector = Sonar::Connector::ExchangePullConnector.new(@config, @base_config)
+      @connector.retrieve_batch_size.should == 1000
+    end
+    
+    it "should set let config override default retrieve_batch_size" do
+      @config['retrieve_batch_size'] = 99
+      @connector = Sonar::Connector::ExchangePullConnector.new(@config, @base_config)
+      @connector.retrieve_batch_size.should == 99
+    end
+    
   end
   
 end

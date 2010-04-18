@@ -63,32 +63,33 @@ describe Sonar::Connector::ExchangeSession do
   
   before do
     @settings = exchange_connection_settings( '2007' )
+    pending
   end
   
   it "should get email content from exchange and write it to a file in a sub-directory of staging dir" do 
     create_mocks
-    # @email_account = ExchangeAccount.spec_create!(:enabled => true, :settings => @settings.to_yaml)
-    # 
-    # staging_dir = nil # closure local
-    #   
-    # # a sub-directory gets created in the staging dir
-    # FileUtils.should_receive( :mkdir_p ).and_return{ |p| staging_dir = p; raise unless p =~ /\/foo\/.+/; nil }
-    # @href1.should_receive(:mark_as_read)
-    # @href1.should_receive(:move_to).with(@archive)
-    #   
-    # # a file gets written in that dir with the contents of href1
-    # href1_io = mock( "href1" )
-    # href1_io.should_receive( :write ).at_least(:once).with( FAKE_CONTENT ).and_return( FAKE_CONTENT.length )
-    #   
-    # File.should_receive( :open ).at_least(:once).and_return{ |p, mode, block|
-    #   raise unless mode = "w"
-    #   raise unless p =~ /\/foo\/.+/
-    #   
-    #   block.call( href1_io )
-    #   href1_io
-    # }
-    # ExchangeRetrieveCommand.new.execute( 'email_account_id' => @email_account.id,
-    #         'staging_dir_parent' => "/foo" )
+    @email_account = ExchangeAccount.spec_create!(:enabled => true, :settings => @settings.to_yaml)
+    
+    staging_dir = nil # closure local
+      
+    # a sub-directory gets created in the staging dir
+    FileUtils.should_receive( :mkdir_p ).and_return{ |p| staging_dir = p; raise unless p =~ /\/foo\/.+/; nil }
+    @href1.should_receive(:mark_as_read)
+    @href1.should_receive(:move_to).with(@archive)
+      
+    # a file gets written in that dir with the contents of href1
+    href1_io = mock( "href1" )
+    href1_io.should_receive( :write ).at_least(:once).with( FAKE_CONTENT ).and_return( FAKE_CONTENT.length )
+      
+    File.should_receive( :open ).at_least(:once).and_return{ |p, mode, block|
+      raise unless mode = "w"
+      raise unless p =~ /\/foo\/.+/
+      
+      block.call( href1_io )
+      href1_io
+    }
+    ExchangeRetrieveCommand.new.execute( 'email_account_id' => @email_account.id,
+            'staging_dir_parent' => "/foo" )
   end
     
   it "should schedule an ImportEmailDirectory command" do
