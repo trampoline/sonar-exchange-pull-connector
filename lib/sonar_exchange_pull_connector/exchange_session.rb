@@ -112,7 +112,7 @@ module Sonar
         # then descend into the current folder's subfolders
         folder.folders.each do |sub_folder|
           return messages if messages.size >= batch_limit
-          messages += messages + fetch_messages(sub_folder, archive_folder, batch_limit, href_regex, messages, proc)
+          messages += messages + fetch_messages(sub_folder, archive_folder, batch_limit, href_regex, messages, &proc)
         end
         
         messages

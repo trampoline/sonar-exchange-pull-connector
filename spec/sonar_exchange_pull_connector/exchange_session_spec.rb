@@ -8,6 +8,12 @@ describe Sonar::Connector::ExchangeSession do
   
   def stub_message(raw="RFC822 content")
     message = Object.new
+    message.instance_eval do
+      def <=>(other)
+        self.object_id <=> other.object_id
+      end
+    end
+        
     stub(message).to_s{"raw: #{raw}"}
     stub(message).raw{raw}
     message
@@ -94,9 +100,31 @@ describe Sonar::Connector::ExchangeSession do
       processed_messages.should == @messages
     end
     
-    it "should obey batch" do
+    it "should obey batch_limit" do
       @session.send(:fetch_messages, @inbox, @archive, 3, //, []).should == @messages[0...3]
     end
+    
+    it "should descend subfolders" do
+      inbox_messages = 5.times.map {stub_message }
+      inbox_foo_messages = 5.times.map {stub_message }
+      inbox_bar_messages = 5.times.map {stub_message }
+      inbox_foo_baz_messages = 5.times.map {stub_message }
+      
+      all_messages = inbox_messages + inbox_foo_messages + inbox_bar_messages + inbox_foo_baz_messages
+      
+      # deepest folder
+      inbox_foo_baz = stub_folder "inbox_foo_baz", inbox_foo_baz_messages, []
+      
+      # 2x mid-level folders, one with a sub-folder
+      inbox_foo = stub_folder "inbox_foo", inbox_foo_messages, [inbox_foo_baz]
+      inbox_bar = stub_folder "inbox_bar", inbox_bar_messages, []
+      
+      # root folder with 2x sub-folders
+      inbox = stub_folder "inbox", inbox_messages, [inbox_foo, inbox_bar]
+      
+      @session.send(:fetch_messages, inbox, @archive, 20, //, []).sort.should == all_messages.sort
+    end
+      
     
   end
   
