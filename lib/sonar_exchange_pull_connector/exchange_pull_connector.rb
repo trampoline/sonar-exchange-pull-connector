@@ -17,6 +17,9 @@ module Sonar
       
       def parse(settings)
         
+        @working_dir = File.join(connector_dir, 'working')
+        @complete_dir = File.join(connector_dir, 'complete')
+        
         # validate that the important params are present
         ["dav_uri", "owa_uri", "username", "mailbox"].each {|param|
           raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter '#{param}' cannot be blank.") if settings[param].blank?
@@ -34,9 +37,12 @@ module Sonar
       end
       
       def action
+        
+        create_dirs
+        current_working_dir = create_timestamped_working_dir working_dir
+        
         # pseudocode
         move_non_empty_working_dirs_to_complete_dir
-        create_timestamped_working_dir
         connect_to_exchange(connect_params)
         
         get_batch_of_mail(folder_params).each do |mail|
@@ -47,6 +53,26 @@ module Sonar
         move_working_dir_to_complete_dir
         update_statistics
       end
+      
+      private
+      
+      def make_dirs
+        FileUtils.mkdir_p working_dir unless File.directory?(working_dir)
+        FileUtils.mkdir_p complete_dir unless File.directory?(complete_dir)
+      end
+      
+      def create_timestamped_working_dir
+        t = Time.now
+        dir = File.join(working_dir, "working_#{t.to_i * 1000000 + t.usec}")
+        FileUtils.mkdir_p dir
+        log.info("created current working dir '#{dir}'")
+        dir
+      end
+      
+      def move_non_empty_working_dirs_to_complete_dir
+        
+      end
+      
       
     end
   end
