@@ -38,25 +38,41 @@ module Sonar
       
       def action
         
+        # setup folders and cleanup old working dirs
         create_dirs
-        current_working_dir = create_timestamped_working_dir working_dir
-        
-        # pseudocode
         cleanup_working_dir
-        connect_to_exchange(connect_params)
+        current_working_dir = create_timestamped_working_dir
         
-        get_batch_of_mail(folder_params).each do |mail|
-          save_json_to_file_in_working_dir (mail.to_json)
-          archive_or_delete mail
+        # create Exchange connection and try to connect
+        begin
+          session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password)
+          session.open_session
+          session.test_connection
+          state[:consecutive_connection_failures] = 0
+        rescue RExchange::RException
+          
+          state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
+          
+          # Send admin email if the count hits 5
+          if state[:consecutive_connection_failures] == 5
+            queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
+            state[:consecutive_connection_failures] = 0
+          end
+          return
         end
         
-        move_working_dir_to_complete_dir
+        session.get_batch_of_mail(folder_params){ |mail|
+          save_json_to_file_in_working_dir (mail.to_json)
+          archive_or_delete mail
+        }
+        
+        move_to_complete_dir current_working_dir
         update_statistics
       end
       
       private
       
-      def make_dirs
+      def create_dirs
         FileUtils.mkdir_p working_dir unless File.directory?(working_dir)
         FileUtils.mkdir_p complete_dir unless File.directory?(complete_dir)
       end
@@ -85,6 +101,12 @@ module Sonar
         }
       end
       
+      def move_to_complete_dir(dir)
+      end
+      
+      # schedule the update of key statistics in the stats.yml file
+      def update_statistics
+      end
       
     end
   end

@@ -48,16 +48,16 @@ describe Sonar::Connector::ExchangePullConnector do
     
   end
   
-  describe "make_dirs" do
+  describe "create_dirs" do
     it "should create working dir" do
       File.directory?(@connector.working_dir).should be_false
-      @connector.send(:make_dirs)
+      @connector.send(:create_dirs)
       File.directory?(@connector.working_dir).should be_true
     end
     
     it "should create complete dir" do
       File.directory?(@connector.complete_dir).should be_false
-      @connector.send(:make_dirs)
+      @connector.send(:create_dirs)
       File.directory?(@connector.complete_dir).should be_true
     end
   end
@@ -84,7 +84,7 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "cleanup_working_dir" do
     before do
-      @connector.send(:make_dirs)
+      @connector.send(:create_dirs)
     end
     
     it "should remove empty top-level dirs" do
@@ -115,6 +115,21 @@ describe Sonar::Connector::ExchangePullConnector do
       @connector.send(:cleanup_working_dir)
       
       File.read(File.join @connector.complete_dir, "foo", "test.txt").should == content
+    end
+  end
+  
+  describe "action" do
+    
+    describe "connecting" do
+      it "should handle connection error" do
+        mock(@session = Object.new).open_session
+        mock(@session).test_connection{raise RExchange::RException.new("foo", "bar", Exception.new)}
+        mock(Sonar::Connector::ExchangeSession).new(anything){@session}
+        
+        lambda{
+          @connector.action
+        }.should_not raise_error
+      end
     end
   end
   
