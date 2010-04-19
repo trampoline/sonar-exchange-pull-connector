@@ -42,7 +42,7 @@ module Sonar
         current_working_dir = create_timestamped_working_dir working_dir
         
         # pseudocode
-        move_non_empty_working_dirs_to_complete_dir
+        cleanup_working_dir
         connect_to_exchange(connect_params)
         
         get_batch_of_mail(folder_params).each do |mail|
@@ -69,8 +69,20 @@ module Sonar
         dir
       end
       
-      def move_non_empty_working_dirs_to_complete_dir
-        
+      def cleanup_working_dir
+        Dir[File.join working_dir, "*"].each{|dir|
+          next unless File.directory?(dir)
+          
+          # Remove empty directories
+          if Dir[File.join dir, "*"].empty?
+            FileUtils.rmdir(dir)
+            log.info "Removed empty dir: #{dir}"
+            
+          else # move non-empty dirs to complete dir
+            FileUtils.mv dir, complete_dir
+            log.info "Moved dir #{dir} to complete dir."
+          end
+        }
       end
       
       

@@ -82,5 +82,40 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
+  describe "cleanup_working_dir" do
+    before do
+      @connector.send(:make_dirs)
+    end
+    
+    it "should remove empty top-level dirs" do
+      @top_dirs = ["foo", "bar"]
+      @top_dirs.each { |d| FileUtils.mkdir_p(File.join @connector.working_dir, d) }
+      
+      @connector.send(:cleanup_working_dir)
+      
+      @top_dirs.each { |d| File.directory?(File.join @connector.working_dir, d).should be_false }
+      @top_dirs.each { |d| File.directory?(File.join @connector.complete_dir, d).should be_false }
+    end
+    
+    it "should move non-empty dirs if the dir contains a file" do
+      subdir = File.join "foo", "some_temporary_subdir"
+      FileUtils.mkdir_p(File.join @connector.working_dir, subdir)
+      
+      @connector.send(:cleanup_working_dir)
+      
+      File.directory?(File.join @connector.working_dir, subdir).should_not be_true
+      File.directory?(File.join @connector.complete_dir, subdir).should be_true
+    end
+    
+    it "should move non-empty dirs if the dir contains a dir" do
+      content = "blart"
+      FileUtils.mkdir_p File.join(@connector.working_dir, "foo")
+      File.open(File.join(@connector.working_dir, "foo", "test.txt"), "w") {|f| f << content}
+      
+      @connector.send(:cleanup_working_dir)
+      
+      File.read(File.join @connector.complete_dir, "foo", "test.txt").should == content
+    end
+  end
   
 end
