@@ -5,6 +5,22 @@ require 'spec_helper'
 #   sonar-web/spec/lib/exchange_connector_spec.rb
 
 describe Sonar::Connector::ExchangeSession do
+  
+  def stub_message(raw="RFC822 content")
+    message = Object.new
+    stub(message).to_s{"raw: #{raw}"}
+    stub(message).raw{raw}
+    message
+  end
+  
+  def stub_folder(name="folder", messages=[], folders=[])
+    folder = Object.new
+    stub(folder).to_s{name}
+    stub(folder).message_hrefs(is_a(Regexp)){messages}
+    stub(folder).folders{folders}
+    folder
+  end
+  
   before do
     @config = {
       :dav_uri => 'dav_uri', 
@@ -44,37 +60,77 @@ describe Sonar::Connector::ExchangeSession do
     end
   end
   
-  
-  def create_mocks
-    @content = "fake rfc822 content"
-    mock(@archive = Object.new)
-    
-    mock(@href1 = Object.new).raw{ @content }
-    mock(@href2 = Object.new).raw{ raise "EXCEPTION" }
-    
-    @was_href3_fetched = false
-    mock(@href3 = Object.new).raw{ @was_href3_fetched = false; @content }
-    
-    hrefs = [@href1, @href2, @href3]
-    
-    mock(sub_folder_1 = Object.new).folders.at_least(1){ [] }
-    
-    mock(sub_folder_2_2 = Object.new).folders.at_least(1){ raise "EXCEPTION" }
-    mock(sub_folder_2 = Object.new).folders.at_least(1){ [sub_folder_2_2] }
-    
-    @was_sub_folder_3_visited = false
-    mock(sub_folder_3 = Object.new).folders.at_least(1){@was_sub_folder_3_visited = true; []}
-    
-    stub(inbox = Object.new).archive{ @archive }
-    stub(inbox).folders{ [sub_folder_1, sub_folder_2, sub_folder_3] }
-    stub(inbox).message_hrefs.with(instance_of Regexp){ hrefs }
-    
-    stub(root_folder = Object.new).inbox{ inbox }
-    
-    stub(RExchange).open(){ root_folder }
+  describe "get_messages" do
+    it "should call fetch_messages with params" do
+      folder = Object.new
+      archive_folder = Object.new
+      batch_limit = 10
+      href_regex = /foo/
+      mock(@session).fetch_messages(folder, archive_folder, batch_limit, href_regex, [], is_a(Proc))
+      @session.get_messages(:folder=>folder, :archive_folder=>archive_folder, :batch_limit=>batch_limit, :href_regex=>href_regex){}
+    end
   end
   
+  describe "fetch_messages" do
+    before do
+      @messages = 5.times.map{ stub_message }
+      @inbox = stub_folder "inbox", @messages
+      @archive = stub_folder "archive"
+    end
+    
+    it "should return messages if current folder is the archive folder" do
+      @session.send(:fetch_messages, @inbox, @inbox, 10, //, []).should == []
+    end
+    
+    it "should retrieve mails" do
+      @session.send(:fetch_messages, @inbox, @archive, 10, //, []).should == @messages
+    end
+    
+    it "should yield to block" do
+      processed_messages = []
+      @session.send(:fetch_messages, @inbox, @archive, 10, //, []){|message|
+        processed_messages << message
+      }
+      processed_messages.should == @messages
+    end
+    
+    it "should obey batch" do
+      @session.send(:fetch_messages, @inbox, @archive, 3, //, []).should == @messages[0...3]
+    end
+    
+  end
+  
+  
   describe "old specs" do
+    
+    # def create_mocks
+    #   @content = "fake rfc822 content"
+    #   mock(@archive = Object.new)
+    #   
+    #   mock(@href1 = Object.new).raw{ @content }
+    #   mock(@href2 = Object.new).raw{ raise "EXCEPTION" }
+    #   
+    #   @was_href3_fetched = false
+    #   mock(@href3 = Object.new).raw{ @was_href3_fetched = false; @content }
+    #   
+    #   hrefs = [@href1, @href2, @href3]
+    #   
+    #   mock(sub_folder_1 = Object.new).folders.at_least(1){ [] }
+    #   
+    #   mock(sub_folder_2_2 = Object.new).folders.at_least(1){ raise "EXCEPTION" }
+    #   mock(sub_folder_2 = Object.new).folders.at_least(1){ [sub_folder_2_2] }
+    #   
+    #   @was_sub_folder_3_visited = false
+    #   mock(sub_folder_3 = Object.new).folders.at_least(1){@was_sub_folder_3_visited = true; []}
+    #   
+    #   stub(inbox = Object.new).archive{ @archive }
+    #   stub(inbox).folders{ [sub_folder_1, sub_folder_2, sub_folder_3] }
+    #   stub(inbox).message_hrefs.with(instance_of Regexp){ hrefs }
+    #   
+    #   stub(root_folder = Object.new).inbox{ inbox }
+    #   
+    #   stub(RExchange).open(){ root_folder }
+    # end
     
     before do
       @settings = exchange_connection_settings( '2007' )

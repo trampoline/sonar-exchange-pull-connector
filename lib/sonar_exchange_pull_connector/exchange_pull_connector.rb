@@ -45,7 +45,7 @@ module Sonar
         
         # create Exchange connection and try to connect
         begin
-          session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password)
+          session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
           session.open_session
           session.test_connection
           state[:consecutive_connection_failures] = 0
