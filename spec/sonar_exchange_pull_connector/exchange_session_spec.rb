@@ -6,27 +6,6 @@ require 'spec_helper'
 
 describe Sonar::Connector::ExchangeSession do
   
-  def stub_message(raw="RFC822 content")
-    message = Object.new
-    message.instance_eval do
-      def <=>(other)
-        self.object_id <=> other.object_id
-      end
-    end
-        
-    stub(message).to_s{"raw: #{raw}"}
-    stub(message).raw{raw}
-    message
-  end
-  
-  def stub_folder(name="folder", messages=[], folders=[])
-    folder = Object.new
-    stub(folder).to_s{name}
-    stub(folder).message_hrefs(is_a(Regexp)){messages}
-    stub(folder).folders{folders}
-    folder
-  end
-  
   before do
     @config = {
       :dav_uri => 'dav_uri', 
@@ -126,7 +105,11 @@ describe Sonar::Connector::ExchangeSession do
     end
     
     it "should continue if a single mail raises an error" do
-      pending
+      m1, m3 = stub_message, stub_message
+      m2 = stub_message
+      stub(m2).raw{raise stub_rexception}
+      stub(@inbox).message_hrefs(is_a(Regexp)){ [m1, m2, m3] }
+      @session.send(:fetch_messages, @inbox, @archive, 10, //).should == [m1, m3]
     end
     
     it "should continue if folder retrieve raises an error" do

@@ -75,25 +75,27 @@ module Sonar
         
         message_hrefs.each do |message|
           begin
+            message.raw # trigger the fetch of the raw data
             messages << message
             yield message if proc
             return messages if messages.size >= batch_limit
-          rescue Exception => e
+          rescue RExchange::RException => e
             log.warn "There was a problem retrieving message from Exchange: " + e.message + "\n" + e.backtrace.join("\n")
           end
         end
         
-        # then descend into the current folder's subfolders
-        folder.folders.each do |sub_folder|
-          return messages if messages.size >= batch_limit
-          messages += fetch_messages(sub_folder, archive_folder, batch_limit-messages.size, href_regex, &proc)
+        begin
+          # then descend into the current folder's subfolders
+          folder.folders.each do |sub_folder|
+            return messages if messages.size >= batch_limit
+            messages += fetch_messages(sub_folder, archive_folder, batch_limit-messages.size, href_regex, &proc)
+          end
+        rescue RExchange::RException => e
+          log.warn "There was a problem listing subfolders with Exchange: " + e.message + "\n" + e.backtrace.join("\n")
+          return messages
         end
         
         messages
-        
-      rescue Exception => e
-        log.warn "There was a problem communicating with Exchange: " + e.message + "\n" + e.backtrace.join("\n")
-        return messages
       end
         
     end
