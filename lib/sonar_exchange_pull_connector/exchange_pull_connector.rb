@@ -1,3 +1,6 @@
+require 'base64'
+require 'digest'
+
 module Sonar
   module Connector
     class ExchangePullConnector < Sonar::Connector::Base
@@ -61,7 +64,6 @@ module Sonar
             state[:consecutive_connection_failures] = 0
           end
           
-          log.error "<pre>"+e.message + "\n" + e.backtrace.join("\n") + "</pre>"
           raise e
         end
         
@@ -124,8 +126,13 @@ module Sonar
       end
       
       # Convert a RExchange mail object to the SONAR JSON format.
-      def mail_to_json(mail)
-        {"raw"=>mail.raw}.to_json
+      def mail_to_json(mail, timestamp)
+        {
+          "rfc822_base84"=>Base64.encode64(mail.raw),
+          "name"=>self.name,
+          "retrieved_at"=>timestamp.to_s,
+          "source_info"=>"connector_class: #{self.class}, connector_name: #{self.name}, dav_uri: #{self.dav_uri}, mailbox: #{self.mailbox}"
+        }.to_json
       end
       
       # Write a text file to a directory.

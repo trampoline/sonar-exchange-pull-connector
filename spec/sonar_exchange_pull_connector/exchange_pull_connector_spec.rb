@@ -125,14 +125,27 @@ describe Sonar::Connector::ExchangePullConnector do
   end
   
   describe "mail_to_json" do
-    it "should create valid JSON" do
-      mail = Object.new
-      stub(mail).raw{ "raw content" }
-      
-      json = @connector.send :mail_to_json, mail
-      
-      recon_mail = JSON.parse json
-      recon_mail["raw"].should == mail.raw
+    before do
+      @mail = Object.new
+      stub(@mail).raw{ "raw RFC822 content" }
+      @t0 = Time.now
+      @reconstituted_json = JSON.parse @connector.send(:mail_to_json, @mail, @t0)
+    end
+    
+    it "should contain base64-encoded raw mail contents" do
+      @reconstituted_json["rfc822_base84"].should == Base64.encode64(@mail.raw)
+    end
+    
+    it "should include name" do
+      @reconstituted_json["name"].should == @connector.name
+    end
+    
+    it "should have retrieved_at timestamp" do
+      @reconstituted_json["retrieved_at"].should == @t0.to_s
+    end
+    
+    it "should contain source_info" do
+      @reconstituted_json["source_info"].should match(/#{@connector.class}.*#{@connector.name}.*#{@connector.dav_uri}.*#{@connector.mailbox}/)
     end
   end
   
