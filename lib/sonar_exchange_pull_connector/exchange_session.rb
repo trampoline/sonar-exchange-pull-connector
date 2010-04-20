@@ -88,7 +88,8 @@ module Sonar
       
       # Recursive mail retrieval. Descends into subfolders until limit has been reached.
       # Only to be used by get_mail.
-      def fetch_messages(folder, archive_folder, batch_limit, href_regex, messages = [], &proc)
+      def fetch_messages(folder, archive_folder, batch_limit, href_regex, &proc)
+        messages = []
         
         if folder == archive_folder # don't descend into archive folder
           log.info "skipping folder '#{folder}' because it's the archive folder"
@@ -112,7 +113,7 @@ module Sonar
         # then descend into the current folder's subfolders
         folder.folders.each do |sub_folder|
           return messages if messages.size >= batch_limit
-          messages += messages + fetch_messages(sub_folder, archive_folder, batch_limit, href_regex, messages, &proc)
+          messages += fetch_messages(sub_folder, archive_folder, batch_limit-messages.size, href_regex, &proc)
         end
         
         messages

@@ -85,23 +85,23 @@ describe Sonar::Connector::ExchangeSession do
     end
     
     it "should return messages if current folder is the archive folder" do
-      @session.send(:fetch_messages, @inbox, @inbox, 10, //, []).should == []
+      @session.send(:fetch_messages, @inbox, @inbox, 10, //).should == []
     end
     
     it "should retrieve mails" do
-      @session.send(:fetch_messages, @inbox, @archive, 10, //, []).should == @messages
+      @session.send(:fetch_messages, @inbox, @archive, 10, //).should == @messages
     end
     
     it "should yield to block" do
       processed_messages = []
-      @session.send(:fetch_messages, @inbox, @archive, 10, //, []){|message|
+      @session.send(:fetch_messages, @inbox, @archive, 10, //){|message|
         processed_messages << message
       }
       processed_messages.should == @messages
     end
     
     it "should obey batch_limit" do
-      @session.send(:fetch_messages, @inbox, @archive, 3, //, []).should == @messages[0...3]
+      @session.send(:fetch_messages, @inbox, @archive, 3, //).should == @messages[0...3]
     end
     
     it "should descend subfolders" do
@@ -122,9 +122,8 @@ describe Sonar::Connector::ExchangeSession do
       # root folder with 2x sub-folders
       inbox = stub_folder "inbox", inbox_messages, [inbox_foo, inbox_bar]
       
-      @session.send(:fetch_messages, inbox, @archive, 20, //, []).sort.should == all_messages.sort
+      @session.send(:fetch_messages, inbox, @archive, 100, //).sort.should == all_messages.sort
     end
-      
     
   end
   
