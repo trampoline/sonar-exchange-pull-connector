@@ -224,18 +224,33 @@ describe Sonar::Connector::ExchangePullConnector do
   end
   
   describe "action" do
-
-    describe "connecting to Exchange" do
-      it "should raise error if connection error" do
-        @session = Object.new
-        mock(@session).open_session
-        mock(@session).test_connection{raise stub_rexception}
-        mock(Sonar::Connector::ExchangeSession).new(anything){@session}
-        
-        lambda{
-          @connector.action
-        }.should raise_error
-      end
+    before do
+      @session = Object.new
+      @root_folder = Object.new
+      stub(@session).open_session
+      stub(@session).test_connection{@root_folder}
+      stub(@session).root_folder{@root_folder}
+      stub(Sonar::Connector::ExchangeSession).new(anything){@session}
+    end
+    
+    it "should raise error if connection error" do
+      mock(@session).test_connection{raise stub_rexception}
+      mock(Sonar::Connector::ExchangeSession).new(anything){@session}
+      
+      lambda{
+        @connector.action
+      }.should raise_error
+    end
+    
+    it "should process emails" do
+      archive = stub_folder "archive"
+      
+      inbox_messages = 5.times.map {stub_message }
+      inbox = stub_folder "inbox", inbox_messages, [archive]
+      
+      stub(@root_folder).inbox{inbox}
+      stub(inbox).archive{archive}
+      @connector.action
     end
   end
   
