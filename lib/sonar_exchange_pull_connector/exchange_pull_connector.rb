@@ -61,12 +61,19 @@ module Sonar
           return
         end
         
-        session.get_batch_of_mail(folder_params){ |mail|
-          save_json_to_file_in_working_dir (mail.to_json)
+        # get messages and save each one to disk in json format
+        session.get_messages(
+          :folder=>session.root_folder.inbox, 
+          :archive_folder=>session.root_folder.inbox.archive,
+          :batch_limit=>retrieve_batch_size,
+          :href_regex=>xml_href_regex
+        ){ |mail|
+          json_content = create_json mail
+          write_to_file json_content, current_working_dir
           archive_or_delete mail
         }
         
-        move_to_complete_dir current_working_dir
+        FileUtils.mv(current_working_dir, complete_dir)
         update_statistics
       end
       
@@ -106,6 +113,16 @@ module Sonar
       
       # schedule the update of key statistics in the stats.yml file
       def update_statistics
+      end
+      
+      def create_json(mail)
+        {"foo"=>"bar"}.to_json
+      end
+      
+      def write_to_file(content, dir)
+      end
+      
+      def archive_or_delete(mail)
       end
       
     end

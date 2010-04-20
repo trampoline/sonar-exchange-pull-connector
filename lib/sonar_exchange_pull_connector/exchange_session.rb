@@ -57,37 +57,10 @@ module Sonar
         fetch_messages folder, archive_folder, batch_limit, href_regex, [], proc
       end
       
-      # def process_emails(message_mails, archive_folder, staging_dir, delete_messages=false)
-      #   
-      #   logger.info("Writing #{message_mails.size} messages to #{staging_dir.to_s}")
-      #   
-      #   message_mails.each_with_index do |(message, mail), i|
-      #     begin
-      #       fname =  File.join( staging_dir, "#{i.to_s}.rfc822")
-      #       f = File.open( fname, "w") do |io|
-      #         io.write( mail )
-      #         logger.info( "message# #{i+1} (#{message}) written to #{fname}")
-      #       end
-      #       message.mark_as_read
-      #       if delete_messages
-      #         message.delete!
-      #         logger.info("message# #{i+1} (#{message}) deleted on exchange")
-      #       else
-      #         message.move_to archive_folder
-      #         logger.info("message# #{i+1} (#{message}) moved to archive")
-      #       end
-      #     rescue Exception => e
-      #       logger.warn( "There was a problem moving message to archive : #{e.inspect}. #{e.backtrace.join("\n")}" )
-      #     end
-      #   end
-      #   
-      #   message_mails.size
-      # end
-      
       private
       
-      # Recursive mail retrieval. Descends into subfolders until limit has been reached.
-      # Only to be used by get_mail.
+      # Recursive message retrieval. 
+      # Descends into subfolders until limit has been reached. Should only be used by #get_mail.
       def fetch_messages(folder, archive_folder, batch_limit, href_regex, &proc)
         messages = []
         
