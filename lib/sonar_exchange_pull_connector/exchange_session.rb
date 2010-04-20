@@ -50,11 +50,10 @@ module Sonar
       # }
       def get_messages(params, &proc)
         folder, archive_folder, batch_limit, href_regex = [:folder, :archive_folder, :batch_limit, :href_regex].map do |field|
-          raise ArgumentError("#{field} is a required parameter") unless params[field]
+          raise ArgumentError.new("#{field} is a required parameter") unless params[field]
           params[field]
         end
-        
-        fetch_messages folder, archive_folder, batch_limit, href_regex, [], proc
+        fetch_messages folder, archive_folder, batch_limit, href_regex, &proc
       end
       
       private

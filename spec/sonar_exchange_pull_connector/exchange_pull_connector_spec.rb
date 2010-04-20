@@ -225,11 +225,13 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "action" do
     before do
-      @session = Object.new
-      @root_folder = Object.new
+      @session = Sonar::Connector::ExchangeSession.new({})
       stub(@session).open_session
       stub(@session).test_connection{@root_folder}
+      
+      @root_folder = Object.new
       stub(@session).root_folder{@root_folder}
+      
       stub(Sonar::Connector::ExchangeSession).new(anything){@session}
     end
     
@@ -250,7 +252,13 @@ describe Sonar::Connector::ExchangePullConnector do
       
       stub(@root_folder).inbox{inbox}
       stub(inbox).archive{archive}
+      
+      mock(@connector).archive_or_delete(anything, anything, archive).times(5)
+      stub(@connector).update_statistics
       @connector.action
+      
+      @connector.should have_received.update_statistics("-", "-", "unknown")
+      @connector.should have_received.update_statistics(is_a(Time), 5, 0)
     end
   end
   

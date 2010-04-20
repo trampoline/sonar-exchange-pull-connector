@@ -51,7 +51,7 @@ describe Sonar::Connector::ExchangeSession do
       archive_folder = Object.new
       batch_limit = 10
       href_regex = /foo/
-      mock(@session).fetch_messages(folder, archive_folder, batch_limit, href_regex, [], is_a(Proc))
+      mock(@session).fetch_messages(folder, archive_folder, batch_limit, href_regex)
       @session.get_messages(:folder=>folder, :archive_folder=>archive_folder, :batch_limit=>batch_limit, :href_regex=>href_regex){}
     end
   end
