@@ -118,17 +118,29 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
+  describe "mail_to_json" do
+    it "should create valid JSON" do
+      mail = Object.new
+      stub(mail).raw{ "raw content" }
+      
+      json = @connector.send :mail_to_json, mail
+      
+      recon_mail = JSON.parse json
+      recon_mail["raw"].should == mail.raw
+    end
+  end
+  
   describe "action" do
     
     describe "connecting" do
-      it "should handle connection error" do
+      it "should raise error if connection error" do
         mock(@session = Object.new).open_session
         mock(@session).test_connection{raise RExchange::RException.new("foo", "bar", Exception.new)}
         mock(Sonar::Connector::ExchangeSession).new(anything){@session}
         
         lambda{
           @connector.action
-        }.should_not raise_error
+        }.should raise_error
       end
     end
   end

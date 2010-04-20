@@ -112,8 +112,10 @@ describe Sonar::Connector::ExchangeSession do
       @session.send(:fetch_messages, @inbox, @archive, 10, //).should == [m1, m3]
     end
     
-    it "should continue if folder retrieve raises an error" do
-      pending
+    it "should recover if folder retrieve raises an error" do
+      @inbox = stub_folder "inbox", @messages, []
+      mock(@inbox).folders{raise stub_rexception}
+      @session.send(:fetch_messages, @inbox, @archive, 10, //).should == @messages
     end
     
   end

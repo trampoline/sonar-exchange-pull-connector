@@ -43,13 +43,16 @@ module Sonar
         cleanup_working_dir
         current_working_dir = create_timestamped_working_dir
         
+        # zero all the "last retrieve" statistics before connecting
+        update_statistics "-", "-", "unknown"
+        
         # create Exchange connection and try to connect
         begin
           session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
           session.open_session
           session.test_connection
           state[:consecutive_connection_failures] = 0
-        rescue RExchange::RException
+        rescue RExchange::RException => e
           
           state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
           
@@ -58,32 +61,35 @@ module Sonar
             queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
             state[:consecutive_connection_failures] = 0
           end
-          return
+          
+          raise e
         end
         
         # get messages and save each one to disk in json format
-        session.get_messages(
+        mails = session.get_messages(
           :folder=>session.root_folder.inbox, 
           :archive_folder=>session.root_folder.inbox.archive,
           :batch_limit=>retrieve_batch_size,
           :href_regex=>xml_href_regex
         ){ |mail|
-          json_content = create_json mail
+          json_content = mail_to_json mail
           write_to_file json_content, current_working_dir
           archive_or_delete mail
         }
         
         FileUtils.mv(current_working_dir, complete_dir)
-        update_statistics
+        update_statistics Time.now, mails.count, (mails.size < retrieve_batch_size ? 0 : 'unknown')
       end
       
       private
       
+      # Create working and complete dirs for this connector instance.
       def create_dirs
         FileUtils.mkdir_p working_dir unless File.directory?(working_dir)
         FileUtils.mkdir_p complete_dir unless File.directory?(complete_dir)
       end
       
+      # Create a working temp dir for the mails from a single batch.
       def create_timestamped_working_dir
         t = Time.now
         dir = File.join(working_dir, "working_#{t.to_i * 1000000 + t.usec}")
@@ -92,6 +98,8 @@ module Sonar
         dir
       end
       
+      # Remove empty dirs from the working dir, 
+      # and move non-empty dirs to the complete dir.
       def cleanup_working_dir
         Dir[File.join working_dir, "*"].each{|dir|
           next unless File.directory?(dir)
@@ -108,20 +116,24 @@ module Sonar
         }
       end
       
-      def move_to_complete_dir(dir)
-      end
-      
       # schedule the update of key statistics in the stats.yml file
-      def update_statistics
+      def update_statistics(last_connect_timestamp, count_retrieved, count_remaining)
+        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'last_connect_timetamp', retrieved_timestamp.to_s)
+        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'count_retrieved', count_retrieved)
+        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'count_remaining', count_remaining)
       end
       
-      def create_json(mail)
-        {"foo"=>"bar"}.to_json
+      # Convert a RExchange mail object to the SONAR JSON format.
+      def mail_to_json(mail)
+        {"raw"=>mail.raw}.to_json
       end
       
+      # Write a text file to a directory.
       def write_to_file(content, dir)
       end
       
+      # Either move a mail object to the Exchange archive or delete it,
+      # depending on user-supplied configuration.
       def archive_or_delete(mail)
       end
       
