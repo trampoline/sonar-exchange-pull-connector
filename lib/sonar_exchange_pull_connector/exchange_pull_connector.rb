@@ -14,12 +14,10 @@ module Sonar
       attr_reader :is_journal_account
       attr_reader :xml_href_regex
       attr_reader :retrieve_batch_size
-      
       attr_reader :working_dir
       attr_reader :complete_dir
       
       def parse(settings)
-        
         @working_dir = File.join(connector_dir, 'working')
         @complete_dir = File.join(connector_dir, 'complete')
         
@@ -68,18 +66,18 @@ module Sonar
         end
         
         # get messages and save each one to disk in json format
-        mails = session.get_messages(
+        messages = session.get_messages(
           :folder=>session.root_folder.inbox, 
           :archive_folder=>session.root_folder.inbox.archive,
           :batch_limit=>retrieve_batch_size,
           :href_regex=>xml_href_regex
-        ){ |mail|
-          json_content = mail_to_json mail
-          write_to_file json_content, current_working_dir
-          archive_or_delete mail
-        }
+        ) do |message|
+          json_content = mail_to_json message
+          write_to_file json_content, current_working_dir, "message", ".json"
+          archive_or_delete message, delete_processed_messages, session.root_folder.inbox.archive
+        end
         
-        FileUtils.mv(current_working_dir, complete_dir)
+        FileUtils.mv current_working_dir, complete_dir
         update_statistics Time.now, mails.count, (mails.size < retrieve_batch_size ? 0 : 'unknown')
       end
       
@@ -96,7 +94,7 @@ module Sonar
         t = Time.now
         dir = File.join(working_dir, "working_#{t.to_i * 1000000 + t.usec}")
         FileUtils.mkdir_p dir
-        log.info("created current working dir '#{dir}'")
+        log.info "created current working dir '#{dir}'"
         dir
       end
       
@@ -136,12 +134,17 @@ module Sonar
       end
       
       # Write a text file to a directory.
-      def write_to_file(content, dir)
+      def write_to_file(content, dir, prefix="file", ext=".txt")
+        t = Time.now
+        filename = File.join(dir, "#{prefix}_#{t.to_i * 1000000 + t.usec}#{ext}")
+        File.open(filename, "w"){|f| f<<content}
       end
       
-      # Either move a mail object to the Exchange archive or delete it,
-      # depending on user-supplied configuration.
-      def archive_or_delete(mail)
+      # Move a message into the archive folder or delete it.
+      def archive_or_delete(message, delete_processed_messages, archive_folder)
+        delete_processed_messages ? message.delete! : message.move_to(archive_folder)
+      rescue RExchange::RException => e
+        log.warn "There was a problem moving or deleting a message in Exchange: " + e.message + "\n" + e.backtrace.join("\n")
       end
       
     end

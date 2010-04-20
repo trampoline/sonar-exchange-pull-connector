@@ -80,7 +80,7 @@ describe Sonar::Connector::ExchangePullConnector do
       Dir[File.join @connector.working_dir, "*"].should_not be_empty
       
       f = Dir[File.join @connector.working_dir, "*"].first
-      File.basename(f).should match(/working_[0..9]?/)
+      File.basename(f).should match(/working_\d+/)
     end
     
     it "should return the dir name" do
@@ -149,6 +149,42 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
+  describe "archive_or_delete" do
+    before do
+      @message = Object.new
+      @folder = Object.new
+    end
+    
+    it "should archive when not delete_processed_messages" do
+      dont_allow(@message).delete!
+      mock(@message).move_to(@folder)
+      @connector.send :archive_or_delete, @message, false, @folder
+    end
+    
+    it "should delete when delete_processed_messages" do
+      dont_allow(@message).move_to(anything)
+      mock(@message).delete!
+      @connector.send :archive_or_delete, @message, true, @folder
+    end
+    
+    it "should recover from RException when moving" do
+      mock(@message).move_to(anything){ raise stub_rexception }
+      mock(@connector.log).warn(anything)
+      lambda{
+        @connector.send :archive_or_delete, @message, false, @folder
+      }.should_not raise_error
+    end
+    
+    it "should recover from RException when deleting" do
+      mock(@message).delete!{ raise stub_rexception }
+      mock(@connector.log).warn(anything)
+      lambda{
+        @connector.send :archive_or_delete, @message, true, @folder
+      }.should_not raise_error
+    end
+    
+  end
+  
   describe "update_statistics" do
     it "should queue 3 updates" do
       mock(@connector.queue).push(is_a(Sonar::Connector::UpdateStatusCommand)).times(3)
@@ -164,6 +200,26 @@ describe Sonar::Connector::ExchangePullConnector do
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "last_connect_timetamp", t0.to_s)
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_retrieved", 0)
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_remaining", "unknown")
+    end
+  end
+  
+  describe "write_to_file" do
+    before do
+      @content = "some content"
+      @dir = @connector.send :create_timestamped_working_dir
+      Dir[@dir+"/*"].should be_empty
+      @connector.send(:write_to_file, @content, @dir, "message", ".json")
+    end
+    
+    it "should write content to a file in the dir" do
+      Dir[@dir+"/*"].size.should == 1
+      f = Dir[@dir+"/*"].first
+      File.read(f).should == @content
+    end
+    
+    it "should create a timestamped filename" do
+      f = Dir[@dir+"/*"].first
+      File.basename(f).should match(/message_\d+\.json/)
     end
   end
   
