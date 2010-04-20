@@ -17,6 +17,12 @@ describe Sonar::Connector::ExchangePullConnector do
       'is_journal_account' => false
     }
     @connector = Sonar::Connector::ExchangePullConnector.new(@config, @base_config)
+
+    # and set up a queue or #action and several other methods will complain
+    @connector.instance_eval do
+      @queue = []
+    end
+    
   end
   
   describe "parse" do
@@ -130,12 +136,31 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
-  describe "action" do
+  describe "update_statistics" do
+    it "should queue 3 updates" do
+      mock(@connector.queue).push(is_a(Sonar::Connector::UpdateStatusCommand)).times(3)
+      @connector.send :update_statistics, "last_connect_timestamp", "count_retrieved", "count_remaining"
+    end
     
-    describe "connecting" do
+    it "should update last_connect_timetamp, count_retrieved and count_remaining" do
+      stub(Sonar::Connector::UpdateStatusCommand).new
+      
+      t0 = Time.now
+      @connector.send :update_statistics, t0, 0, "unknown"
+      
+      Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "last_connect_timetamp", t0.to_s)
+      Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_retrieved", 0)
+      Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_remaining", "unknown")
+    end
+  end
+  
+  describe "action" do
+
+    describe "connecting to Exchange" do
       it "should raise error if connection error" do
-        mock(@session = Object.new).open_session
-        mock(@session).test_connection{raise RExchange::RException.new("foo", "bar", Exception.new)}
+        @session = Object.new
+        mock(@session).open_session
+        mock(@session).test_connection{raise stub_rexception}
         mock(Sonar::Connector::ExchangeSession).new(anything){@session}
         
         lambda{

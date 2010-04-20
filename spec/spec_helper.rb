@@ -10,3 +10,8 @@ require 'sonar_connector/rspec/spec_helper'
 
 require 'custom_spec_helpers'
 Spec::Example::ExampleMethods.send(:include, CustomSpecHelpers)
+
+require 'rr'
+Spec::Runner.configure do |config|
+  config.mock_with RR::Adapters::Rspec
+end

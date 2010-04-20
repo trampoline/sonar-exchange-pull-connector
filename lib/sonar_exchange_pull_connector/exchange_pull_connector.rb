@@ -53,7 +53,6 @@ module Sonar
           session.test_connection
           state[:consecutive_connection_failures] = 0
         rescue RExchange::RException => e
-          
           state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
           
           # Send admin email if the count hits 5
@@ -62,6 +61,7 @@ module Sonar
             state[:consecutive_connection_failures] = 0
           end
           
+          log.error "<pre>"+e.message + "\n" + e.backtrace.join("\n") + "</pre>"
           raise e
         end
         
@@ -118,9 +118,9 @@ module Sonar
       
       # schedule the update of key statistics in the stats.yml file
       def update_statistics(last_connect_timestamp, count_retrieved, count_remaining)
-        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'last_connect_timetamp', retrieved_timestamp.to_s)
-        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'count_retrieved', count_retrieved)
-        queue << Sonar::Connector::UpdateStatusCommand.new(self, 'count_remaining', count_remaining)
+        queue.push Sonar::Connector::UpdateStatusCommand.new(self, 'last_connect_timetamp', last_connect_timestamp.to_s)
+        queue.push Sonar::Connector::UpdateStatusCommand.new(self, 'count_retrieved', count_retrieved)
+        queue.push Sonar::Connector::UpdateStatusCommand.new(self, 'count_remaining', count_remaining)
       end
       
       # Convert a RExchange mail object to the SONAR JSON format.
