@@ -65,6 +65,8 @@ module Sonar
         
         FileUtils.mv current_working_dir, complete_dir
         update_statistics Time.now, messages.count, (messages.size < retrieve_batch_size ? 0 : 'unknown')
+      rescue RExchange::RException
+        log.error "Error connecting to Exchange. Check Exchange server settings and authentication credentials."
       end
       
       private
@@ -111,12 +113,13 @@ module Sonar
         state[:consecutive_connection_failures] = 0
         session
       rescue RExchange::RException => e
-        state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
+        state[:consecutive_connection_failures] = state[:consecutive_connection_failures].to_i + 1
         
         # Send admin email if the count hits 5
         if state[:consecutive_connection_failures] == 5
           queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
           state[:consecutive_connection_failures] = 0
+          log.info "scheduled admin email"
         end
         raise e
       end
