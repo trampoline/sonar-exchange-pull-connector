@@ -126,14 +126,13 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "mail_to_json" do
     before do
-      @mail = Object.new
-      stub(@mail).raw{ "raw RFC822 content" }
+      @content = "raw RFC822 content"
       @t0 = Time.now
-      @reconstituted_json = JSON.parse @connector.send(:mail_to_json, @mail, @t0)
+      @reconstituted_json = JSON.parse @connector.send(:mail_to_json, @content, @t0)
     end
     
     it "should contain base64-encoded raw mail contents" do
-      @reconstituted_json["rfc822_base84"].should == Base64.encode64(@mail.raw)
+      @reconstituted_json["rfc822_base84"].should == Base64.encode64(@content)
     end
     
     it "should include name" do
@@ -223,7 +222,57 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
-  describe "action" do
+  describe "extract_email" do
+    before do
+      @content = load_fixture_file "email_with_email_attachment.eml"
+    end
+    
+    it "should return a parsed email" do
+      mail = @connector.send :extract_email, @content
+      mail.subject.should match(/Top-level email/)
+    end
+    
+    it "should use first attachment if required" do
+      mail = @connector.send :extract_email, @content, true
+      mail.subject.should match(/This is an attachment/)
+    end
+    
+    it "should return nil and log warning if the email doesn't parse" do
+      mock(TMail::Mail).parse(@content){ raise TMail::SyntaxError.new}
+      mock(@connector.log).warn(/couldn't parse an email/)
+      @connector.send(:extract_email, @content).should be_nil
+    end
+    
+    it "should return nil and log warning if use_first_attachment is specified but no attachment exists" do
+      @content = load_fixture_file "email_without_attachment.eml"
+      mock(@connector.log).warn(/there are no attachments on this mail/)
+      @connector.send(:extract_email, @content, true).should be_nil
+    end
+  end
+  
+  describe "extract_header" do
+    it "should return empty string if supplied empty string" do
+      @connector.send(:extract_header, "").should == ""
+    end
+    
+    it "should return the content if there is no double line break" do
+      content = "foo bar baz \r\n  blah blah blah\r\n"
+      @connector.send(:extract_header, content).should == content
+    end
+    
+    it "should split on double \\r\\n" do
+      content = "foo\r\n\r\nbar"
+      @connector.send(:extract_header, content).should == "foo"
+    end
+    
+    it "should split on double \\n" do
+      content = "foo\n\nbar"
+      @connector.send(:extract_header, content).should == "foo"
+    end
+    
+  end
+  
+  describe "create_and_open_session" do
     before do
       @session = Sonar::Connector::ExchangeSession.new({})
       stub(@session).open_session
@@ -237,26 +286,93 @@ describe Sonar::Connector::ExchangePullConnector do
     
     it "should raise error if connection error" do
       mock(@session).test_connection{raise stub_rexception}
-      mock(Sonar::Connector::ExchangeSession).new(anything){@session}
-      
       lambda{
-        @connector.action
+        @connector.send :create_and_open_session
       }.should raise_error
     end
     
-    it "should process emails" do
-      archive = stub_folder "archive"
+    it "should return a session on valid connect" do
+      @connector.send(:create_and_open_session).should be_instance_of(Sonar::Connector::ExchangeSession)
+    end
+  end
+  
+  describe "extract_and_save" do
+    before do
+      @content = "content"
+      @dir = "foo_dir"
+      stub(@message = Object.new).raw{@content}
+      stub(@tmail = Object.new).to_s{@content}
+      stub(@connector).extract_email{@tmail}
+      stub(@connector).mail_to_json
+      stub(@connector).write_to_file
+    end
+    
+    it "should generate tmail object from content" do
+      mock(@connector).extract_email(@content, anything)
+      @connector.send :extract_and_save, @message, @dir
+    end
+    
+    it "should generate json" do
+      mock(@connector).mail_to_json(@content, is_a(Time)){@content}
+      @connector.send :extract_and_save, @message, @dir
+    end
+    
+    it "should write to file" do
+      stub(@connector).mail_to_json{@content}
+      mock(@connector).write_to_file(@content, @dir, anything, anything)
+      @connector.send :extract_and_save, @message, @dir
+    end
+    
+    describe "header only" do
+      it "should extract header when headers_only set" do
+        mock(@connector).headers_only{true}
+        mock(@connector).extract_header(@content){@content}
+        @connector.send :extract_and_save, @message, @dir
+      end
+      
+      it "should use full content when headers_only is not set" do
+        mock(@connector).headers_only{false}
+        dont_allow(@connector).extract_header(anything)
+        @connector.send :extract_and_save, @message, @dir
+      end
+    end
+  end
+  
+  
+  describe "action" do
+    before do
+      stub(@connector).update_statistics
+      
+      @archive = stub_folder "archive"
       
       inbox_messages = 5.times.map {stub_message }
-      inbox = stub_folder "inbox", inbox_messages, [archive]
+      @inbox = stub_folder "inbox", inbox_messages
+      stub(@inbox).archive{@archive}
       
-      stub(@root_folder).inbox{inbox}
-      stub(inbox).archive{archive}
+      @root_folder = Object.new
+      stub(@root_folder).inbox{@inbox}
       
-      mock(@connector).archive_or_delete(anything, anything, archive).times(5)
-      stub(@connector).update_statistics
+      @session = Sonar::Connector::ExchangeSession.new({})
+      stub(@session).root_folder{@root_folder}
+      stub(@connector).create_and_open_session{@session}
+
+      stub(@connector).extract_and_save(anything, anything)
+      stub(@connector).archive_or_delete(anything, anything, @archive)
+      
+      # sanity check these mocks
+      @session.root_folder.should_not be_nil
+      @session.root_folder.inbox.should == @inbox
+      @session.root_folder.inbox.archive.should == @archive
+    end
+    
+    it "should process emails" do
+      mock(@connector).extract_and_save(anything, anything).times(5)
+      mock(@connector).archive_or_delete(anything, anything, @archive).times(5)
       @connector.action
-      
+    end
+    
+    it "should update statistics" do
+      @connector.action
       @connector.should have_received.update_statistics("-", "-", "unknown")
       @connector.should have_received.update_statistics(is_a(Time), 5, 0)
     end

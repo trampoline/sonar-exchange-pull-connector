@@ -1,0 +1,16 @@
+Subject: Test email
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/html;
+	charset=us-ascii
+X-Apple-Base-Url: x-msg://1/
+X-Universally-Unique-Identifier: c7cc15b2-7186-4f82-9936-894288fe9450
+X-Apple-Mail-Remote-Attachments: YES
+From: Peter MacRobert <peter.macrobert@empire42.com>
+X-Apple-Windows-Friendly: 1
+Date: Wed, 21 Apr 2010 14:43:24 +0100
+Content-Transfer-Encoding: 7bit
+Message-Id: <B63CAA43-F378-4033-BA8B-ED408805B5B5@empire42.com>
+X-Uniform-Type-Identifier: com.apple.mail-draft
+To: foo@bar.com
+
+<html><head></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">Plain email with no attachments.</body></html>

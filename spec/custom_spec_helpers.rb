@@ -1,4 +1,10 @@
 module CustomSpecHelpers
+  
+  def load_fixture_file(relative_filename)
+    complete_file = File.join File.dirname(__FILE__), "fixtures", relative_filename
+    File.read complete_file
+  end
+  
   def integration_connection_settings(version='2007')
     case version
     when '2007'

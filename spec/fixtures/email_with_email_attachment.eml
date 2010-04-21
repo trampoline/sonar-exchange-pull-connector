@@ -1,0 +1,52 @@
+Subject: Top-level email
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: multipart/related;
+	type="text/html";
+	boundary=Apple-Mail-1--656091021
+X-Apple-Base-Url: x-msg://3/
+X-Universally-Unique-Identifier: 505346e8-98bc-41b0-95a2-0f60a22e4589
+X-Apple-Mail-Remote-Attachments: YES
+From: Peter MacRobert <peter.macrobert@empire42.com>
+X-Apple-Windows-Friendly: 1
+Date: Wed, 21 Apr 2010 14:26:08 +0100
+X-Apple-Mail-Signature: 
+Message-Id: <6612CEDB-F33D-4588-83C5-AFB2B28FD85A@empire42.com>
+X-Uniform-Type-Identifier: com.apple.mail-draft
+To: foo2@example.com
+
+
+--Apple-Mail-1--656091021
+Content-Transfer-Encoding: 7bit
+Content-Type: text/html;
+	charset=us-ascii
+
+<html><head></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">This is the main email content. This email has an attachment which is another email.<div><object type="application/x-apple-msg-attachment" data="cid:93E2F850-5D35-4619-87A1-469BB289F188@snowdonia.trampolinesystems.com" id="eee2d418-5b17-4488-8c96-f9d1fcad486c" height="46" width="150" apple-width="yes" apple-height="yes"></object></div></body></html>
+--Apple-Mail-1--656091021
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="This is an attachment"
+Content-Type: message/rfc822;
+	x-mac-hide-extension=yes;
+	x-unix-mode=0666;
+	name="This is an attachment"
+Content-Id: <93E2F850-5D35-4619-87A1-469BB289F188@snowdonia.trampolinesystems.com>
+
+Subject: This is an attachment
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/html;
+	charset=us-ascii
+X-Apple-Base-Url: x-msg://1/
+X-Universally-Unique-Identifier: c7cc15b2-7186-4f82-9936-894288fe9450
+X-Apple-Mail-Remote-Attachments: YES
+From: Peter MacRobert <peter.macrobert@empire42.com>
+X-Apple-Windows-Friendly: 1
+Date: Wed, 21 Apr 2010 14:25:01 +0100
+X-Apple-Mail-Signature: 
+Content-Transfer-Encoding: 7bit
+Message-Id: <0FDFBAF6-0960-40FB-B730-B0C7C3299948@empire42.com>
+X-Uniform-Type-Identifier: com.apple.mail-draft
+To: foo@bar.com
+
+<html><head></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">Attached email.</body></html>
+
+--Apple-Mail-1--656091021--

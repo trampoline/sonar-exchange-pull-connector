@@ -16,6 +16,7 @@ module Sonar
       attr_reader :retrieve_batch_size
       attr_reader :working_dir
       attr_reader :complete_dir
+      attr_reader :headers_only
       
       def parse(settings)
         @working_dir = File.join(connector_dir, 'working')
@@ -32,6 +33,7 @@ module Sonar
         @password = settings["password"]
         @mailbox = settings["mailbox"]
         @retrieve_batch_size = settings["retrieve_batch_size"] || 1000
+        @headers_only = settings["headers_only"] == true
         @delete_processed_messages = settings["delete_processed_messages"] == true
         @is_journal_account = settings["is_journal_account"] == true
         @xml_href_regex = !settings["xml_href_regex"].blank? ? Regexp.new(settings["xml_href_regex"]) : /<.*?a:propstat.*?>.*?<.*?a:status.*?>.*?HTTP\/1\.1.*?200.*?OK.*?<.*?a:href.*?>(.*?)<\/.*?a:href.*?>.*?\/a:propstat.*?>/im
@@ -48,22 +50,7 @@ module Sonar
         update_statistics "-", "-", "unknown"
         
         # create Exchange connection and try to connect
-        begin
-          session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
-          session.open_session
-          session.test_connection
-          state[:consecutive_connection_failures] = 0
-        rescue RExchange::RException => e
-          state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
-          
-          # Send admin email if the count hits 5
-          if state[:consecutive_connection_failures] == 5
-            queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
-            state[:consecutive_connection_failures] = 0
-          end
-          
-          raise e
-        end
+        session = create_and_open_session
         
         # get messages and save each one to disk in json format
         messages = session.get_messages(
@@ -72,8 +59,7 @@ module Sonar
           :batch_limit=>retrieve_batch_size,
           :href_regex=>xml_href_regex
         ) do |message|
-          json_content = mail_to_json message, Time.now
-          write_to_file json_content, current_working_dir, "message", ".json"
+          extract_and_save message, current_working_dir
           archive_or_delete message, delete_processed_messages, session.root_folder.inbox.archive
         end
         
@@ -116,6 +102,55 @@ module Sonar
         }
       end
       
+      # Create a session to Exchange server and force it to connect
+      # in order to verify that the session is valid.
+      def create_and_open_session
+        session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
+        session.open_session
+        session.test_connection
+        state[:consecutive_connection_failures] = 0
+        session
+      rescue RExchange::RException => e
+        state[:consecutive_connection_failures] ? state[:consecutive_connection_failures] + 1 : 1
+        
+        # Send admin email if the count hits 5
+        if state[:consecutive_connection_failures] == 5
+          queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
+          state[:consecutive_connection_failures] = 0
+        end
+        raise e
+      end
+      
+      # Extract relevant RFC822 content from raw RFC822 content and return a TMail::Mail object.
+      # If return_first_level_attachment is true then first attachement is parsed and 
+      # returned instead of the original mail.
+      def extract_email(content, use_first_attachment = false)
+        mail = TMail::Mail.parse content
+        
+        # dig deeper into this email if asked to
+        if use_first_attachment 
+          attachment = mail.parts.select{ |p| p.content_disposition == "attachment" || p.content_type == "message/rfc822" }.first
+          
+          # complain if the email has no attachment to extract
+          unless attachment
+            log.warn "Parameter 'use_first_attachment' is true but there are no attachments on this mail: \n#{content}"
+            return nil
+          end
+          mail = extract_email(attachment.body, false)
+        end
+        
+        mail
+      rescue TMail::SyntaxError
+        log.warn "TMail couldn't parse an email, so it will be ignored. Mail content: \n#{content}"
+        return nil
+      end
+      
+      # Extract the header from RFC822 content.
+      def extract_header(content)
+        return "" if content.blank?
+        content.split(/\r\n\r\n|\n\n/).first
+      end
+      
       # schedule the update of key statistics in the stats.yml file
       def update_statistics(last_connect_timestamp, count_retrieved, count_remaining)
         queue.push Sonar::Connector::UpdateStatusCommand.new(self, 'last_connect_timetamp', last_connect_timestamp.to_s)
@@ -123,10 +158,10 @@ module Sonar
         queue.push Sonar::Connector::UpdateStatusCommand.new(self, 'count_remaining', count_remaining)
       end
       
-      # Convert a RExchange mail object to the SONAR JSON format.
-      def mail_to_json(mail, timestamp)
+      # Create SONAR JSON object to represent email content and associated meta-data.
+      def mail_to_json(content, timestamp)
         {
-          "rfc822_base84"=>Base64.encode64(mail.raw),
+          "rfc822_base84"=>Base64.encode64(content),
           "name"=>self.name,
           "retrieved_at"=>timestamp.to_s,
           "source_info"=>"connector_class: #{self.class}, connector_name: #{self.name}, dav_uri: #{self.dav_uri}, mailbox: #{self.mailbox}"
@@ -147,6 +182,21 @@ module Sonar
         log.warn "There was a problem moving or deleting a message in Exchange: " + e.message + "\n" + e.backtrace.join("\n")
       end
       
+      # Extract content from Exchange message and save to JSON file in the working dir.
+      def extract_and_save(message, dir)
+        tmail = extract_email message.raw, is_journal_account
+        
+        #skip messages that failed during parse
+        if tmail
+          # strip the mail body if we're only sending header data,
+          # then convert to json format and save to file
+          rfc822_content = headers_only ? extract_header(tmail.to_s) : tmail.to_s
+          json_content = mail_to_json rfc822_content, Time.now
+          write_to_file json_content, dir, "message", ".json"
+        end
+        tmail
+      end
+        
     end
   end
 end
