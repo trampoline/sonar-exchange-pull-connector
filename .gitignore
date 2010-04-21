@@ -19,3 +19,4 @@ rdoc
 pkg
 
 ## PROJECT::SPECIFIC
+sonar_exchange_pull_connector.gemspec
