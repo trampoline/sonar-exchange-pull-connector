@@ -19,19 +19,32 @@ module Sonar
       attr_reader :headers_only
       
       def parse(settings)
+        log.datetime_format = "%Y-%m-%d %H:%M:%S"
+        
         @working_dir = File.join(connector_dir, 'working')
         @complete_dir = File.join(connector_dir, 'complete')
         
         # validate that the important params are present
-        ["dav_uri", "owa_uri", "username", "mailbox"].each {|param|
+        ["dav_uri", "username", "mailbox"].each {|param|
           raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter '#{param}' cannot be blank.") if settings[param].blank?
         }
-        
+
         @dav_uri = settings["dav_uri"]
-        @owa_uri = settings["owa_uri"]
         @username = settings["username"]
         @password = settings["password"]
         @mailbox = settings["mailbox"]
+        
+        @owa_uri = case settings["auth_type"]
+        when 'form'
+          raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: form-based authentication requires the 'owa_uri' parameter.") if settings["owa_uri"].blank?
+          settings["owa_uri"]
+        when 'basic'
+          raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: basic authentication specified - 'owa_uri' is superfluous.") if !settings["owa_uri"].blank?
+          nil
+        else
+          raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter 'auth_type' is required and must be 'form' or 'basic'.")
+        end 
+        
         @retrieve_batch_size = settings["retrieve_batch_size"] || 1000
         @headers_only = settings["headers_only"] == true
         @delete_processed_messages = settings["delete_processed_messages"] == true
@@ -40,7 +53,6 @@ module Sonar
       end
       
       def action
-        
         # setup folders and cleanup old working dirs
         create_dirs
         cleanup_working_dir
@@ -65,8 +77,6 @@ module Sonar
         
         FileUtils.mv current_working_dir, complete_dir
         update_statistics Time.now, messages.count, (messages.size < retrieve_batch_size ? 0 : 'unknown')
-      rescue RExchange::RException
-        log.error "Error connecting to Exchange. Check Exchange server settings and authentication credentials."
       end
       
       private
@@ -107,9 +117,12 @@ module Sonar
       # Create a session to Exchange server and force it to connect
       # in order to verify that the session is valid.
       def create_and_open_session
+        log.info "creating new connection"
         session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
         session.open_session
+        log.info "testing new connection"
         session.test_connection
+        log.info "connection ok"
         state[:consecutive_connection_failures] = 0
         session
       rescue RExchange::RException => e
@@ -119,7 +132,7 @@ module Sonar
         if state[:consecutive_connection_failures] == 5
           queue << Sonar::Connector::SendAdminEmailCommand.new(self, "tried 5 times and failed to connect to the Exchange Server")
           state[:consecutive_connection_failures] = 0
-          log.info "scheduled admin email"
+          log.info "scheduled admin email: tried 5 times and failed to connect to the Exchange Server"
         end
         raise e
       end
