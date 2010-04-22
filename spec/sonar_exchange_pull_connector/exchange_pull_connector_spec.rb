@@ -9,6 +9,7 @@ describe Sonar::Connector::ExchangePullConnector do
       'name'=>'exchange', 
       'repeat_delay'=> 1,
       'dav_uri'  => 'https://exchangevm/Exchange/',
+      'auth_type'=> 'form',
       'owa_uri'  => 'https://exchangevm/owa/auth/owaauth.dll',
       'username' => 'journal',
       'password' => 'D33pfried',
@@ -32,8 +33,8 @@ describe Sonar::Connector::ExchangePullConnector do
       }
     end
     
-    it "should require dav_uri, owa_uri, username and mailbox" do
-      %W{dav_uri owa_uri username mailbox}.each{|p|
+    it "should require dav_uri, username and mailbox" do
+      %W{dav_uri username mailbox}.each{|p|
         lambda{
           @connector = Sonar::Connector::ExchangePullConnector.new(@config.merge({p=>nil}), @base_config)
         }.should raise_error(Sonar::Connector::InvalidConfig, /#{p}.*cannot be blank/)
@@ -50,6 +51,21 @@ describe Sonar::Connector::ExchangePullConnector do
       @config['retrieve_batch_size'] = 99
       @connector = Sonar::Connector::ExchangePullConnector.new(@config, @base_config)
       @connector.retrieve_batch_size.should == 99
+    end
+    
+    describe "auth_type" do
+      it "should raise error when type is form and owa_uri not supplied" do
+        pending
+      end
+      it "should set owa_uri when type is form" do
+        pending
+      end
+      it "should raise error when type is basic and owa_uri is supplied" do
+        pending
+      end
+      it "should set owa_uri to nil for basic" do
+        pending
+      end
     end
     
   end

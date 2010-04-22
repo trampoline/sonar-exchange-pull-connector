@@ -10,8 +10,9 @@ module CustomSpecHelpers
     when '2007'
       {
         'dav_uri'  => 'https://exchangevm/Exchange/',
-        #must be provided for form-based authentication
-        'owa_uri'  => 'https://exchangevm/owa/auth/owaauth.dll',
+        'auth_type'=> 'basic',
+        # must be provided for form-based authentication
+        # 'owa_uri'  => 'https://exchangevm/owa/auth/owaauth.dll',
         'username' => 'journal',
         'password' => 'D33pfried',
         'mailbox'  => 'journal@trampolan.local',
@@ -21,8 +22,9 @@ module CustomSpecHelpers
     when '2003'
       {
         'dav_uri'  => 'http://sbs2003vm/exchange/',
-        #must be provided for form-based authentication
-        'owa_uri'  => 'http://sbs2003vm/exchweb/bin/auth/owaauth.dll',
+        'auth_type'=> 'basic',
+        # must be provided for form-based authentication
+        # 'owa_uri'  => 'http://sbs2003vm/exchweb/bin/auth/owaauth.dll',
         'username' => 'journal',
         'password' => 'h0spital50a',
         'mailbox'  => 'journal@trampolan1',
