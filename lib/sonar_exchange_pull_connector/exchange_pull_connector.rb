@@ -118,7 +118,7 @@ module Sonar
       # in order to verify that the session is valid.
       def create_and_open_session
         log.info "creating new connection"
-        session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :log=>log)
+        session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :mailbox=>mailbox, :log=>log)
         session.open_session
         log.info "testing new connection"
         session.test_connection
