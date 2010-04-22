@@ -17,12 +17,18 @@ module Sonar
       attr_reader :log
       
       def initialize(args)
+        [:dav_uri, :username, :mailbox].each {|p|
+          raise ArgumentError.new("Parameter '#{p}' is required.") if args[p].blank?
+        }
+
         @dav_uri = args[:dav_uri]
         @owa_uri = args[:owa_uri]
         @username = args[:username]
         @password = args[:password]
         @mailbox = args[:mailbox]
         @log = args[:log] || Logger.new(STDOUT)
+        
+        @log.warn "Password is blank." if @password.blank?
       end
       
       # Create and open an Exchange session

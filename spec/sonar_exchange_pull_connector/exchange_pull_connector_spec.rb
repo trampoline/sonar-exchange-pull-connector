@@ -290,7 +290,15 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "create_and_open_session" do
     before do
-      @session = Sonar::Connector::ExchangeSession.new({})
+      @session_config = {
+        :dav_uri => 'dav_uri', 
+        :owa_uri => 'owa_uri', 
+        :username => 'username',
+        :password => 'password',
+        :mailbox => 'mailbox'
+      }
+      
+      @session = Sonar::Connector::ExchangeSession.new @session_config
       stub(@session).open_session
       stub(@session).test_connection{@root_folder}
       
@@ -357,6 +365,14 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "action" do
     before do
+      @session_config = {
+        :dav_uri => 'dav_uri', 
+        :owa_uri => 'owa_uri', 
+        :username => 'username',
+        :password => 'password',
+        :mailbox => 'mailbox'
+      }
+      
       stub(@connector).update_statistics
       
       @archive = stub_folder "archive"
@@ -368,7 +384,7 @@ describe Sonar::Connector::ExchangePullConnector do
       @root_folder = Object.new
       stub(@root_folder).inbox{@inbox}
       
-      @session = Sonar::Connector::ExchangeSession.new({})
+      @session = Sonar::Connector::ExchangeSession.new @session_config
       stub(@session).root_folder{@root_folder}
       stub(@connector).create_and_open_session{@session}
 
