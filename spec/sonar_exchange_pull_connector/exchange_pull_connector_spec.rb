@@ -320,6 +320,16 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
+  describe "ensure_archive_folder_exists" do
+    it "should create the folder if it exists" do
+      pending
+    end
+    
+    it "should not create the folder if it already exists" do
+      pending
+    end
+  end
+  
   describe "extract_and_save" do
     before do
       @content = "content"

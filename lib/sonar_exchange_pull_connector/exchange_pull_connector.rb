@@ -80,7 +80,7 @@ module Sonar
           archive_or_delete message, delete_processed_messages, session.root_folder.inbox.archive
         end
         
-        FileUtils.mv current_working_dir, complete_dir
+        cleanup_working_dir
         update_statistics Time.now, messages.count, (messages.size < retrieve_batch_size ? 0 : 'unknown')
       end
       
