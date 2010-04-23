@@ -320,6 +320,16 @@ describe Sonar::Connector::ExchangePullConnector do
     end
   end
   
+  describe "find_archive_folder" do
+    it "should return the folder if it exists" do
+      pending
+    end
+    
+    it "should return nil if it doesn't exist" do
+      pending
+    end
+  end
+  
   describe "ensure_archive_folder_exists" do
     it "should create the folder if it exists" do
       pending
@@ -387,7 +397,7 @@ describe Sonar::Connector::ExchangePullConnector do
       
       inbox_messages = 5.times.map {stub_message }
       @inbox = stub_folder "inbox", inbox_messages
-      stub(@inbox).archive{@archive}
+      stub(@inbox).folder_hash{@archive}
       
       @root_folder = Object.new
       stub(@root_folder).inbox{@inbox}
@@ -398,13 +408,14 @@ describe Sonar::Connector::ExchangePullConnector do
 
       stub(@connector).update_statistics
       stub(@connector).ensure_archive_folder_exists
+      stub(@connector).find_archive_folder{@archive}
       stub(@connector).extract_and_save
       stub(@connector).archive_or_delete
       
       # sanity check these mocks
       @session.root_folder.should_not be_nil
       @session.root_folder.inbox.should == @inbox
-      @session.root_folder.inbox.archive.should == @archive
+      @connector.send(:find_archive_folder, @session).should == @archive
     end
     
     it "should process emails" do

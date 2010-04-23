@@ -72,12 +72,12 @@ module Sonar
         # get messages and save each one to disk in json format
         messages = session.get_messages(
           :folder=>session.root_folder.inbox, 
-          :archive_folder=>session.root_folder.inbox.archive,
+          :archive_folder=>find_archive_folder(session),
           :batch_limit=>retrieve_batch_size,
           :href_regex=>xml_href_regex
         ) do |message|
           extract_and_save message, current_working_dir
-          archive_or_delete message, delete_processed_messages, session.root_folder.inbox.archive
+          archive_or_delete message, delete_processed_messages, find_archive_folder(session)
         end
         
         cleanup_working_dir
@@ -140,8 +140,14 @@ module Sonar
         raise e
       end
       
+      # Find archive folder by name
+      def find_archive_folder(session)
+        session.root_folder.inbox.folder_hash[archive_name]
+      end
+
+      # Ensure that the named archive folder exists
       def ensure_archive_folder_exists(session)
-        session.root_folder.inbox.make_subfolder(archive_name) unless session.root_folder.inbox.folders_hash.keys.include?(archive_name)
+        session.root_folder.inbox.make_subfolder(archive_name) unless find_archive_folder(session)
       end
       
       # Extract relevant RFC822 content from raw RFC822 content and return a TMail::Mail object.
