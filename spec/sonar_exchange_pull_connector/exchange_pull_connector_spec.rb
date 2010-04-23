@@ -373,8 +373,6 @@ describe Sonar::Connector::ExchangePullConnector do
         :mailbox => 'mailbox'
       }
       
-      stub(@connector).update_statistics
-      
       @archive = stub_folder "archive"
       
       inbox_messages = 5.times.map {stub_message }
@@ -388,8 +386,10 @@ describe Sonar::Connector::ExchangePullConnector do
       stub(@session).root_folder{@root_folder}
       stub(@connector).create_and_open_session{@session}
 
-      stub(@connector).extract_and_save(anything, anything)
-      stub(@connector).archive_or_delete(anything, anything, @archive)
+      stub(@connector).update_statistics
+      stub(@connector).ensure_archive_folder_exists
+      stub(@connector).extract_and_save
+      stub(@connector).archive_or_delete
       
       # sanity check these mocks
       @session.root_folder.should_not be_nil

@@ -14,7 +14,7 @@ begin
     gem.add_dependency "sonar_connector", ">= 0.5.1"
     gem.add_dependency "activesupport", ">= 2.3.5"
     gem.add_dependency "json_pure", ">= 1.2.2"
-    gem.add_dependency "sonar_rexchange", ">= 0.3.6"
+    gem.add_dependency "sonar_rexchange", ">= 0.3.7"
     
     gem.add_development_dependency "rspec", ">= 1.2.9"
     gem.add_development_dependency "rr", ">= 0.10.5"

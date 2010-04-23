@@ -10,6 +10,7 @@ module Sonar
       attr_reader :username
       attr_reader :password
       attr_reader :mailbox
+      attr_reader :archive_name
       attr_reader :delete_processed_messages
       attr_reader :is_journal_account
       attr_reader :xml_href_regex
@@ -43,7 +44,10 @@ module Sonar
           nil
         else
           raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter 'auth_type' is required and must be 'form' or 'basic'.")
-        end 
+        end
+        
+        raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter 'archive_name' can only contain numbers, letters and underscores.") if settings["archive_name"].to_s.match(/[^a-z0-9\_]/i)
+        @archive_name = settings["archive_name"] || "processed_by_sonar"
         
         @retrieve_batch_size = settings["retrieve_batch_size"] || 1000
         @headers_only = settings["headers_only"] == true
@@ -61,8 +65,9 @@ module Sonar
         # zero all the "last retrieve" statistics before connecting
         update_statistics "-", "-", "unknown"
         
-        # create Exchange connection and try to connect
+        # create Exchange connection, try to connect, and ensure the archive folder exists
         session = create_and_open_session
+        ensure_archive_folder_exists(session) unless delete_processed_messages
         
         # get messages and save each one to disk in json format
         messages = session.get_messages(
@@ -117,12 +122,10 @@ module Sonar
       # Create a session to Exchange server and force it to connect
       # in order to verify that the session is valid.
       def create_and_open_session
-        log.info "creating new connection"
+        log.info "creating and opening a new connection"
         session = Sonar::Connector::ExchangeSession.new(:owa_uri=>owa_uri, :dav_uri=>dav_uri, :username=>username, :password=>password, :mailbox=>mailbox, :log=>log)
         session.open_session
-        log.info "testing new connection"
         session.test_connection
-        log.info "connection ok"
         state[:consecutive_connection_failures] = 0
         session
       rescue RExchange::RException => e
@@ -135,6 +138,10 @@ module Sonar
           log.info "scheduled admin email: tried 5 times and failed to connect to the Exchange Server"
         end
         raise e
+      end
+      
+      def ensure_archive_folder_exists(session)
+        session.root_folder.inbox.make_subfolder(archive_name) unless session.root_folder.inbox.folders_hash.keys.include?(archive_name)
       end
       
       # Extract relevant RFC822 content from raw RFC822 content and return a TMail::Mail object.
