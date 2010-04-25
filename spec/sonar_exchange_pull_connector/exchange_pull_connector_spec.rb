@@ -87,7 +87,7 @@ describe Sonar::Connector::ExchangePullConnector do
   describe "create_timestamped_working_dir" do
     before do
       @t0 = Time.now
-      mock(Time).now{@t0}
+      stub(Time).now{@t0}
     end
     
     it "should create a working dir" do
@@ -148,7 +148,7 @@ describe Sonar::Connector::ExchangePullConnector do
     end
     
     it "should contain base64-encoded raw mail contents" do
-      @reconstituted_json["rfc822_base84"].should == Base64.encode64(@content)
+      @reconstituted_json["rfc822_base64"].should == Base64.encode64(@content)
     end
     
     it "should include name" do

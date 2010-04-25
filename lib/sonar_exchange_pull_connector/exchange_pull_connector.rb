@@ -20,6 +20,7 @@ module Sonar
       attr_reader :headers_only
       
       def parse(settings)
+        # FIXME: why are log file lines still written without timestamp info?
         log.datetime_format = "%Y-%m-%d %H:%M:%S"
         
         @working_dir = File.join(connector_dir, 'working')
@@ -29,7 +30,7 @@ module Sonar
         ["dav_uri", "username", "mailbox"].each {|param|
           raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter '#{param}' cannot be blank.") if settings[param].blank?
         }
-
+        
         @dav_uri = settings["dav_uri"]
         @username = settings["username"]
         @password = settings["password"]
@@ -76,12 +77,14 @@ module Sonar
           :batch_limit=>retrieve_batch_size,
           :href_regex=>xml_href_regex
         ) do |message|
+          log.info "processing message #{message}"
           extract_and_save message, current_working_dir
           archive_or_delete message, delete_processed_messages, find_archive_folder(session)
         end
         
         cleanup_working_dir
         update_statistics Time.now, messages.count, (messages.size < retrieve_batch_size ? 0 : 'unknown')
+        log.info "finished cleanup, wrote statistics, all done."
       end
       
       private
@@ -95,7 +98,7 @@ module Sonar
       # Create a working temp dir for the mails from a single batch.
       def create_timestamped_working_dir
         t = Time.now
-        dir = File.join(working_dir, "working_#{t.to_i * 1000000 + t.usec}")
+        dir = File.join working_dir, Sonar::Connector::Utils.timestamped_id("working")
         FileUtils.mkdir_p dir
         log.info "created current working dir '#{dir}'"
         dir
@@ -142,12 +145,17 @@ module Sonar
       
       # Find archive folder by name
       def find_archive_folder(session)
-        session.root_folder.inbox.folder_hash[archive_name]
+        session.root_folder.inbox.folders_hash[archive_name]
       end
 
       # Ensure that the named archive folder exists
       def ensure_archive_folder_exists(session)
-        session.root_folder.inbox.make_subfolder(archive_name) unless find_archive_folder(session)
+        f = find_archive_folder(session)
+        unless f
+          session.root_folder.inbox.make_subfolder(archive_name) 
+          raise "Tried to create archive folder '#{archive_name}' but it still hasn't appeared in Exchange WebDAV." unless find_archive_folder(session)
+        end
+        f
       end
       
       # Extract relevant RFC822 content from raw RFC822 content and return a TMail::Mail object.
@@ -190,7 +198,7 @@ module Sonar
       # Create SONAR JSON object to represent email content and associated meta-data.
       def mail_to_json(content, timestamp)
         {
-          "rfc822_base84"=>Base64.encode64(content),
+          "rfc822_base64"=>Base64.encode64(content),
           "name"=>self.name,
           "retrieved_at"=>timestamp.to_s,
           "source_info"=>"connector_class: #{self.class}, connector_name: #{self.name}, dav_uri: #{self.dav_uri}, mailbox: #{self.mailbox}"
@@ -200,7 +208,7 @@ module Sonar
       # Write a text file to a directory.
       def write_to_file(content, dir, prefix="file", ext=".txt")
         t = Time.now
-        filename = File.join(dir, "#{prefix}_#{t.to_i * 1000000 + t.usec}#{ext}")
+        filename = File.join dir, Sonar::Connector::Utils.timestamped_id(prefix) + ext
         File.open(filename, "w"){|f| f<<content}
       end
       
