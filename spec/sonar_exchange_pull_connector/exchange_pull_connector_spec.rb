@@ -22,6 +22,7 @@ describe Sonar::Connector::ExchangePullConnector do
     # and set up a queue or #action and several other methods will complain
     @connector.instance_eval do
       @queue = []
+      @complete = Sonar::Connector::FileStore.new(File.join self.connector_dir, "working")
     end
     
   end
@@ -69,77 +70,7 @@ describe Sonar::Connector::ExchangePullConnector do
     end
     
   end
-  
-  describe "create_dirs" do
-    it "should create working dir" do
-      File.directory?(@connector.working_dir).should be_false
-      @connector.send(:create_dirs)
-      File.directory?(@connector.working_dir).should be_true
-    end
     
-    it "should create complete dir" do
-      File.directory?(@connector.complete_dir).should be_false
-      @connector.send(:create_dirs)
-      File.directory?(@connector.complete_dir).should be_true
-    end
-  end
-  
-  describe "create_timestamped_working_dir" do
-    before do
-      @t0 = Time.now
-      stub(Time).now{@t0}
-    end
-    
-    it "should create a working dir" do
-      Dir[File.join @connector.working_dir, "*"].should be_empty
-      @connector.send(:create_timestamped_working_dir)
-      Dir[File.join @connector.working_dir, "*"].should_not be_empty
-      
-      f = Dir[File.join @connector.working_dir, "*"].first
-      File.basename(f).should match(/working_\d+/)
-    end
-    
-    it "should return the dir name" do
-      File.directory?(@connector.send(:create_timestamped_working_dir)).should be_true
-    end
-  end
-  
-  describe "cleanup_working_dir" do
-    before do
-      @connector.send(:create_dirs)
-    end
-    
-    it "should remove empty top-level dirs" do
-      @top_dirs = ["foo", "bar"]
-      @top_dirs.each { |d| FileUtils.mkdir_p(File.join @connector.working_dir, d) }
-      
-      @connector.send(:cleanup_working_dir)
-      
-      @top_dirs.each { |d| File.directory?(File.join @connector.working_dir, d).should be_false }
-      @top_dirs.each { |d| File.directory?(File.join @connector.complete_dir, d).should be_false }
-    end
-    
-    it "should move non-empty dirs if the dir contains a file" do
-      subdir = File.join "foo", "some_temporary_subdir"
-      FileUtils.mkdir_p(File.join @connector.working_dir, subdir)
-      
-      @connector.send(:cleanup_working_dir)
-      
-      File.directory?(File.join @connector.working_dir, subdir).should_not be_true
-      File.directory?(File.join @connector.complete_dir, subdir).should be_true
-    end
-    
-    it "should move non-empty dirs if the dir contains a dir" do
-      content = "blart"
-      FileUtils.mkdir_p File.join(@connector.working_dir, "foo")
-      File.open(File.join(@connector.working_dir, "foo", "test.txt"), "w") {|f| f << content}
-      
-      @connector.send(:cleanup_working_dir)
-      
-      File.read(File.join @connector.complete_dir, "foo", "test.txt").should == content
-    end
-  end
-  
   describe "mail_to_json" do
     before do
       @content = "raw RFC822 content"
@@ -215,26 +146,6 @@ describe Sonar::Connector::ExchangePullConnector do
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "last_connect_timetamp", t0.to_s)
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_retrieved", 0)
       Sonar::Connector::UpdateStatusCommand.should have_received.new(@connector, "count_remaining", "unknown")
-    end
-  end
-  
-  describe "write_to_file" do
-    before do
-      @content = "some content"
-      @dir = @connector.send :create_timestamped_working_dir
-      Dir[@dir+"/*"].should be_empty
-      @connector.send(:write_to_file, @content, @dir, "message", ".json")
-    end
-    
-    it "should write content to a file in the dir" do
-      Dir[@dir+"/*"].size.should == 1
-      f = Dir[@dir+"/*"].first
-      File.read(f).should == @content
-    end
-    
-    it "should create a timestamped filename" do
-      f = Dir[@dir+"/*"].first
-      File.basename(f).should match(/message_\d+\.json/)
     end
   end
   
@@ -353,31 +264,31 @@ describe Sonar::Connector::ExchangePullConnector do
     
     it "should generate tmail object from content" do
       mock(@connector).extract_email(@content, anything)
-      @connector.send :extract_and_save, @message, @dir
+      @connector.send :extract_and_save, @message
     end
     
     it "should generate json" do
       mock(@connector).mail_to_json(@content, is_a(Time)){@content}
-      @connector.send :extract_and_save, @message, @dir
+      @connector.send :extract_and_save, @message
     end
     
-    it "should write to file" do
+    it "should write to filestore" do
       stub(@connector).mail_to_json{@content}
-      mock(@connector).write_to_file(@content, @dir, anything, anything)
-      @connector.send :extract_and_save, @message, @dir
+      mock(@connector.complete).add(@content)
+      @connector.send :extract_and_save, @message
     end
     
     describe "header only" do
       it "should extract header when headers_only set" do
         mock(@connector).headers_only{true}
         mock(@connector).extract_header(@content){@content}
-        @connector.send :extract_and_save, @message, @dir
+        @connector.send :extract_and_save, @message
       end
       
       it "should use full content when headers_only is not set" do
         mock(@connector).headers_only{false}
         dont_allow(@connector).extract_header(anything)
-        @connector.send :extract_and_save, @message, @dir
+        @connector.send :extract_and_save, @message
       end
     end
   end
@@ -419,7 +330,7 @@ describe Sonar::Connector::ExchangePullConnector do
     end
     
     it "should process emails" do
-      mock(@connector).extract_and_save(anything, anything).times(5)
+      mock(@connector).extract_and_save(anything).times(5)
       mock(@connector).archive_or_delete(anything, anything, @archive).times(5)
       @connector.action
     end

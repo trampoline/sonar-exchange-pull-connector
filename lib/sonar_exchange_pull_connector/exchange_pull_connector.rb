@@ -15,17 +15,9 @@ module Sonar
       attr_reader :is_journal_account
       attr_reader :xml_href_regex
       attr_reader :retrieve_batch_size
-      attr_reader :working_dir
-      attr_reader :complete_dir
       attr_reader :headers_only
       
       def parse(settings)
-        # FIXME: why are log file lines still written without timestamp info?
-        log.datetime_format = "%Y-%m-%d %H:%M:%S"
-        
-        @working_dir = File.join(connector_dir, 'working')
-        @complete_dir = File.join(connector_dir, 'complete')
-        
         # validate that the important params are present
         ["dav_uri", "username", "mailbox"].each {|param|
           raise Sonar::Connector::InvalidConfig.new("Connector #{self.name}: parameter '#{param}' cannot be blank.") if settings[param].blank?
@@ -58,11 +50,6 @@ module Sonar
       end
       
       def action
-        # setup folders and cleanup old working dirs
-        create_dirs
-        cleanup_working_dir
-        current_working_dir = create_timestamped_working_dir
-        
         # zero all the "last retrieve" statistics before connecting
         update_statistics "-", "-", "unknown"
         
@@ -78,50 +65,16 @@ module Sonar
           :href_regex=>xml_href_regex
         ) do |message|
           log.info "processing message #{message}"
-          extract_and_save message, current_working_dir
+          extract_and_save message
           archive_or_delete message, delete_processed_messages, find_archive_folder(session)
         end
         
-        cleanup_working_dir
         update_statistics Time.now, messages.count, (messages.size < retrieve_batch_size ? 0 : 'unknown')
         log.info "finished cleanup, wrote statistics, all done."
       end
       
       private
-      
-      # Create working and complete dirs for this connector instance.
-      def create_dirs
-        FileUtils.mkdir_p working_dir unless File.directory?(working_dir)
-        FileUtils.mkdir_p complete_dir unless File.directory?(complete_dir)
-      end
-      
-      # Create a working temp dir for the mails from a single batch.
-      def create_timestamped_working_dir
-        t = Time.now
-        dir = File.join working_dir, Sonar::Connector::Utils.timestamped_id("working")
-        FileUtils.mkdir_p dir
-        log.info "created current working dir '#{dir}'"
-        dir
-      end
-      
-      # Remove empty dirs from the working dir, 
-      # and move non-empty dirs to the complete dir.
-      def cleanup_working_dir
-        Dir[File.join working_dir, "*"].each{|dir|
-          next unless File.directory?(dir)
-          
-          # Remove empty directories
-          if Dir[File.join dir, "*"].empty?
-            FileUtils.rmdir(dir)
-            log.info "Removed empty dir: #{dir}"
             
-          else # move non-empty dirs to complete dir
-            FileUtils.mv dir, complete_dir
-            log.info "Moved dir #{dir} to complete dir."
-          end
-        }
-      end
-      
       # Create a session to Exchange server and force it to connect
       # in order to verify that the session is valid.
       def create_and_open_session
@@ -205,13 +158,6 @@ module Sonar
         }.to_json
       end
       
-      # Write a text file to a directory.
-      def write_to_file(content, dir, prefix="file", ext=".txt")
-        t = Time.now
-        filename = File.join dir, Sonar::Connector::Utils.timestamped_id(prefix) + ext
-        File.open(filename, "w"){|f| f<<content}
-      end
-      
       # Move a message into the archive folder or delete it.
       def archive_or_delete(message, delete_processed_messages, archive_folder)
         delete_processed_messages ? message.delete! : message.move_to(archive_folder)
@@ -220,7 +166,7 @@ module Sonar
       end
       
       # Extract content from Exchange message and save to JSON file in the working dir.
-      def extract_and_save(message, dir)
+      def extract_and_save(message)
         tmail = extract_email message.raw, is_journal_account
         
         #skip messages that failed during parse
@@ -229,7 +175,7 @@ module Sonar
           # then convert to json format and save to file
           rfc822_content = headers_only ? extract_header(tmail.to_s) : tmail.to_s
           json_content = mail_to_json rfc822_content, Time.now
-          write_to_file json_content, dir, "message", ".json"
+          complete.add json_content
         end
         tmail
       end
