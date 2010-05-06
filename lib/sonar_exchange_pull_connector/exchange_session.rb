@@ -59,14 +59,14 @@ module Sonar
           raise ArgumentError.new("#{field} is a required parameter") unless params[field]
           params[field]
         end
-        fetch_messages folder, archive_folder, batch_limit, href_regex, &proc
+        fetch_messages folder, archive_folder, batch_limit, href_regex, params[:reporter], &proc
       end
       
       private
       
       # Recursive message retrieval. 
       # Descends into subfolders until limit has been reached. Should only be used by #get_mail.
-      def fetch_messages(folder, archive_folder, batch_limit, href_regex, &proc)
+      def fetch_messages(folder, archive_folder, batch_limit, href_regex, reporter=nil, &proc)
         messages = []
         
         if folder == archive_folder # don't descend into archive folder
@@ -84,8 +84,9 @@ module Sonar
             messages << message
             yield message if proc
             return messages if messages.size >= batch_limit
-          rescue RExchange::RException => e
+          rescue Exception => e
             log.warn "There was a problem retrieving message from Exchange: " + e.message + "\n" + e.backtrace.join("\n")
+            reporter.call(e) if reporter
           end
         end
         
@@ -95,8 +96,9 @@ module Sonar
             return messages if messages.size >= batch_limit
             messages += fetch_messages(sub_folder, archive_folder, batch_limit-messages.size, href_regex, &proc)
           end
-        rescue RExchange::RException => e
+        rescue Exception => e
           log.warn "There was a problem listing subfolders with Exchange: " + e.message + "\n" + e.backtrace.join("\n")
+          reporter.call(e) if reporter
           return messages
         end
         

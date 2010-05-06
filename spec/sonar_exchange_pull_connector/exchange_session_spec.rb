@@ -51,8 +51,9 @@ describe Sonar::Connector::ExchangeSession do
       archive_folder = Object.new
       batch_limit = 10
       href_regex = /foo/
-      mock(@session).fetch_messages(folder, archive_folder, batch_limit, href_regex)
-      @session.get_messages(:folder=>folder, :archive_folder=>archive_folder, :batch_limit=>batch_limit, :href_regex=>href_regex){}
+      reporter = lambda{}
+      mock(@session).fetch_messages(folder, archive_folder, batch_limit, href_regex, reporter)
+      @session.get_messages(:folder=>folder, :archive_folder=>archive_folder, :batch_limit=>batch_limit, :href_regex=>href_regex, :reporter=>reporter){}
     end
   end
   
@@ -116,6 +117,28 @@ describe Sonar::Connector::ExchangeSession do
       @inbox = stub_folder "inbox", @messages, []
       mock(@inbox).folders{raise stub_rexception}
       @session.send(:fetch_messages, @inbox, @archive, 10, //).should == @messages
+    end
+    
+    describe "error reporter" do
+      before do
+        @reporter = lambda{|exception|}
+      end
+      
+      it "should yield to error reporter if a mail raises an exception" do
+        m1 = stub_message
+        stub(m1).raw{raise stub_rexception}
+        stub(@inbox).message_hrefs(is_a(Regexp)){ [m1, m1, m1] }
+        mock(@reporter).call(is_a Exception).times(3)
+      
+        @session.send(:fetch_messages, @inbox, @archive, 10, //, @reporter).should == []
+      end
+    
+      it "should recover if folder retrieve raises an error" do
+        @inbox = stub_folder "inbox", @messages, []
+        mock(@inbox).folders{raise stub_rexception}
+        mock(@reporter).call(is_a Exception).times(1)
+        @session.send(:fetch_messages, @inbox, @archive, 10, //, @reporter).should == @messages
+      end
     end
     
   end
