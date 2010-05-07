@@ -62,7 +62,8 @@ module Sonar
           :folder=>session.root_folder.inbox, 
           :archive_folder=>find_archive_folder(session),
           :batch_limit=>retrieve_batch_size,
-          :href_regex=>xml_href_regex
+          :href_regex=>xml_href_regex,
+          :reporter=>error_reporter
         ) do |message|
           log.info "processing message #{message}"
           extract_and_save message
@@ -109,6 +110,13 @@ module Sonar
           raise "Tried to create archive folder '#{archive_name}' but it still hasn't appeared in Exchange WebDAV." unless find_archive_folder(session)
         end
         f
+      end
+      
+      # Error reporter to handle exceptions in mail handling
+      def error_reporter
+        lambda{|exception|
+          queue << Sonar::Connector::IncrementStatusValueCommand.new(self, "rexchange_errors")
+        }
       end
       
       # Extract relevant RFC822 content from raw RFC822 content and return a TMail::Mail object.
