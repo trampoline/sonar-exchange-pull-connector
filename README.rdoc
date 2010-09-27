@@ -1,6 +1,6 @@
 = sonar-push-connector
 
-Description goes here.
+a connector for the sonar-connector framework, which retrieves messages from a microsoft exchange server
 
 == Note on Patches/Pull Requests
  
@@ -14,4 +14,4 @@ Description goes here.
 
 == Copyright
 
-Copyright (c) 2010 Peter MacRobert. See LICENSE for details.
+Copyright (c) 2010 Trampoline Systems Ltd. See LICENSE for details.
