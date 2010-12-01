@@ -175,15 +175,16 @@ module Sonar
       
       # Extract content from Exchange message and save to JSON file in the working dir.
       def extract_and_save(message)
-        tmail = extract_email message.raw, is_journal_account
+        tmail = extract_email(message.raw, is_journal_account)
         
         #skip messages that failed during parse
-        if tmail
+        if tmail && tmail.message_id && !tmail.message_id.strip.empty?
           # strip the mail body if we're only sending header data,
           # then convert to json format and save to file
+          fname = tmail.message_id.strip.gsub(/[^\w]/,'')
           rfc822_content = headers_only ? extract_header(tmail.to_s) : tmail.to_s
-          json_content = mail_to_json rfc822_content, Time.now
-          complete.add json_content
+          json_content = mail_to_json(rfc822_content, Time.now)
+          filestore.write(:complete, "#{fname}", json_content)
         end
         tmail
       end

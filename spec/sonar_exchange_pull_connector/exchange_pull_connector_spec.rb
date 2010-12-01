@@ -22,7 +22,6 @@ describe Sonar::Connector::ExchangePullConnector do
     # and set up a queue or #action and several other methods will complain
     @connector.instance_eval do
       @queue = []
-      @complete = Sonar::Connector::FileStore.new(File.join self.connector_dir, "working")
     end
     
   end
@@ -253,35 +252,44 @@ describe Sonar::Connector::ExchangePullConnector do
   
   describe "extract_and_save" do
     before do
+      @message = Object.new
+      @raw = "raw"
+      @tmail = Object.new
       @content = "content"
-      @dir = "foo_dir"
-      stub(@message = Object.new).raw{@content}
-      stub(@tmail = Object.new).to_s{@content}
+      @message_id = "foo_id"
+      @json = "[1,2,3]"
+      @filestore = Object.new
+
+      stub(@message).raw{@raw}
+      stub(@tmail).to_s{@raw}
+      stub(@tmail).message_id{@message_id}
       stub(@connector).extract_email{@tmail}
-      stub(@connector).mail_to_json
-      stub(@connector).write_to_file
+      stub(@connector).mail_to_json{@json}
+      stub(@connector).filestore{@filestore}
+      stub(@filestore).write(:complete, is_a(String), is_a(String))
     end
     
     it "should generate tmail object from content" do
-      mock(@connector).extract_email(@content, anything)
+      # no email, no processing
+      mock(@connector).extract_email(@raw, anything){@tmail}
       @connector.send :extract_and_save, @message
     end
     
     it "should generate json" do
-      mock(@connector).mail_to_json(@content, is_a(Time)){@content}
+      mock(@connector).mail_to_json(@raw, is_a(Time)){@json}
+      mock(@filestore).write(:complete, is_a(String), @json)
       @connector.send :extract_and_save, @message
     end
     
     it "should write to filestore" do
-      stub(@connector).mail_to_json{@content}
-      mock(@connector.complete).add(@content)
+      mock(@filestore).write(:complete, "foo_id", @json)
       @connector.send :extract_and_save, @message
     end
     
     describe "header only" do
       it "should extract header when headers_only set" do
         mock(@connector).headers_only{true}
-        mock(@connector).extract_header(@content){@content}
+        mock(@connector).extract_header(@raw){@content}
         @connector.send :extract_and_save, @message
       end
       
